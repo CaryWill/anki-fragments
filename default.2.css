@@ -116,3 +116,7 @@ td {
   font-family:
     -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
 }
+
+button {
+  font-size: 18px !important;
+}
