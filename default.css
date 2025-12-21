@@ -10,7 +10,6 @@
 }
 
 .card {
-  font-size: 20px;
   line-height: 1.5;
   text-align: left;
   color: black;
@@ -79,7 +78,7 @@ td {
   background: #f5f5f5;
   border-left: 3px solid #4caf50;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 14px !important;
 }
 
 #example:not(:empty)::before {
@@ -98,7 +97,7 @@ td {
   background: #fff3cd;
   border-left: 3px solid #ffc107;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 14px !important;
 }
 #images:not(:empty)::before {
   content: "";
