@@ -53,14 +53,11 @@ dt,
 dd,
 th,
 td {
-  font-family: "FOT-筑紫A丸ゴシック Std" !important;
+  /* font-family: "FOT-筑紫A丸ゴシック Std" !important; */
 }
 
 #front {
   white-space: pre-line;
-  * {
-    font-size: 20px !important;
-  }
 }
 
 .soundLink {
@@ -124,4 +121,8 @@ td {
 
 *:empty {
   display: none;
+}
+
+* {
+  font-size: 18px !important;
 }
