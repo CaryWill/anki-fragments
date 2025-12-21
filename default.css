@@ -1,14 +1,3 @@
-@font-face {
-  font-family: anki-font;
-  src: url("FOT-TsukuARdGothic Std R.ttf");
-  /* FOT-Cezanne ProN M.ttf */
-  /* FOT-TsukuBRdGothic Std R.ttf */
-  /* FOT-TsukuBRdGothic Std B.ttf */
-  /* FOT-TsukuARdGothic Std B.ttf */
-  /* FOT-TsukuARdGothic Std R.ttf */
-  /* FOT-UDKakugo_Large Pr6N L.ttf */
-}
-
 .card {
   line-height: 1.5;
   text-align: left;
@@ -124,4 +113,6 @@ td {
 
 * {
   font-size: 18px !important;
+  font-family:
+    -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
 }
