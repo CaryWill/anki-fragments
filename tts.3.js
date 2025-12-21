@@ -6,6 +6,14 @@
 (function () {
   "use strict";
 
+  // ============ 配置 ============
+
+  /**
+   * API 密钥配置
+   * 在这里修改你的 API 密钥
+   */
+  const API_KEY = "J492I153g8Z6308";
+
   // ============ 工具函数 ============
 
   /**
@@ -29,11 +37,32 @@
   }
 
   /**
+   * 检查 API 密钥状态
+   */
+  async function checkApiKey() {
+    try {
+      const response = await fetch(
+        `https://deprecatedapis.tts.quest/v2/api/?key=${API_KEY}`,
+      );
+      const data = await response.json();
+
+      if (data.errorMessage) {
+        return { valid: false, error: data.errorMessage };
+      }
+
+      return { valid: true };
+    } catch (error) {
+      console.error("API key check error:", error);
+      return { valid: true }; // Continue if check fails
+    }
+  }
+
+  /**
    * 获取 WAV 音频
    */
   async function fetchWavBlob(frontText, exampleText) {
     const url =
-      "https://deprecatedapis.tts.quest/v2/voicevox/audio/?key=J492I153g8Z6308&speaker=2&pitch=0&intonationScale=1&speed=1&text=" +
+      `https://deprecatedapis.tts.quest/v2/voicevox/audio/?key=${API_KEY}&speaker=2&pitch=0&intonationScale=1&speed=1&text=` +
       encodeURIComponent(frontText + " \n " + exampleText);
 
     const res = await fetch(url);
@@ -107,6 +136,23 @@
   // ============ 自动初始化 ============
 
   (async () => {
+    const container = document.getElementById("button-container");
+    if (!container) return;
+
+    // 检查 API 密钥
+    const apiKeyStatus = await checkApiKey();
+
+    if (!apiKeyStatus.valid) {
+      // 显示错误按钮
+      const errorBtn = document.createElement("button");
+      errorBtn.textContent = `Error: ${apiKeyStatus.error}`;
+      errorBtn.style.cssText =
+        "background-color: #dc3545; color: white; padding: 5px 10px; border: none; border-radius: 4px; cursor: not-allowed;";
+      errorBtn.disabled = true;
+      container.insertBefore(errorBtn, container.firstChild);
+      return;
+    }
+
     // 获取文本内容
     const frontElement = document.getElementById("front");
     const exampleElement = document.getElementById("example");
@@ -128,9 +174,6 @@
       window.ankiAudioManager.stopAll();
       window.ankiAudioManager.currentCardText = currentCardText;
     }
-
-    const container = document.getElementById("button-container");
-    if (!container) return;
 
     // 生成唯一标识符用于跟踪当前卡片
     const cardId = `card-${Date.now()}-${Math.random()}`;
