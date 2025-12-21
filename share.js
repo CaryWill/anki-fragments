@@ -1,6 +1,6 @@
 /**
- * 分享功能模块
- * 用于创建和管理文本分享功能
+ * 分享按钮功能模块
+ * 自动初始化，无需手动调用
  */
 
 (function () {
@@ -40,7 +40,6 @@
 
       try {
         let textToShare = "";
-
         console.log("savedSelection:", savedSelection);
 
         if (savedSelection) {
@@ -78,8 +77,46 @@
     return shareBtn;
   }
 
-  // 挂载到 window 对象
+  // 挂载到 window 对象（供外部调用）
   window.AnkiShare = {
     init: initShareButton,
   };
+
+  // ============ 自动初始化 ============
+
+  (function autoInit() {
+    // 等待 DOM 加载完成
+    const init = () => {
+      const container = document.getElementById("button-container");
+      const frontElement = document.getElementById("front");
+
+      if (!container) {
+        console.warn("未找到 button-container 元素");
+        return;
+      }
+
+      if (!frontElement) {
+        console.warn("未找到 front 元素");
+        return;
+      }
+
+      const frontText = frontElement.textContent.trim();
+
+      if (!frontText) {
+        console.warn("front 元素内容为空");
+        return;
+      }
+
+      // 初始化分享按钮
+      initShareButton(container, frontText);
+      console.log("分享按钮已自动初始化");
+    };
+
+    // 如果 DOM 已加载，立即执行
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init);
+    } else {
+      init();
+    }
+  })();
 })();
