@@ -33,7 +33,7 @@
    */
   async function fetchWavBlob(frontText, exampleText) {
     const url =
-      "https://deprecatedapis.tts.quest/v2/voicevox/audio/?key=t127g0112270q_0&speaker=2&pitch=0&intonationScale=1&speed=1&text=" +
+      "https://deprecatedapis.tts.quest/v2/voicevox/audio/?key=J492I153g8Z6308&speaker=2&pitch=0&intonationScale=1&speed=1&text=" +
       encodeURIComponent(frontText + " \n " + exampleText);
 
     const res = await fetch(url);
