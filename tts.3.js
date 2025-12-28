@@ -169,7 +169,9 @@
     initAudioManager();
 
     // 检查卡片内容是否变化
-    if (window.ankiAudioManager.currentCardText !== currentCardText) {
+    const isNewCard =
+      window.ankiAudioManager.currentCardText !== currentCardText;
+    if (isNewCard) {
       console.log("Card text changed, stopping previous audio");
       window.ankiAudioManager.stopAll();
       window.ankiAudioManager.currentCardText = currentCardText;
@@ -275,8 +277,8 @@
         }
       });
 
-      // 默认播放（如果不包含特定字符）
-      if (!frontText.includes(',"') && isCurrentCard()) {
+      // 只在新卡片且不包含特定字符时自动播放
+      if (isNewCard && !frontText.includes(',"') && isCurrentCard()) {
         playAudio();
       }
     } catch (err) {
