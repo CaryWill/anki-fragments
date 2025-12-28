@@ -1,6 +1,7 @@
 /**
  * TTS 播放功能模块
  * 自动初始化，无需手动调用
+ * 支持检测卡片翻转（front <-> back）
  */
 
 (function () {
@@ -24,6 +25,7 @@
       window.ankiAudioManager = {
         currentAudio: null,
         currentCardText: null,
+        currentCardSide: null, // 新增：记录当前卡片面
         stopAll: function () {
           if (this.currentAudio) {
             this.currentAudio.pause();
@@ -31,9 +33,18 @@
             this.currentAudio = null;
           }
           this.currentCardText = null;
+          this.currentCardSide = null;
         },
       };
     }
+  }
+
+  /**
+   * 检测当前卡片面（front 或 back）
+   */
+  function detectCardSide() {
+    const backElement = document.getElementById("back");
+    return backElement ? "back" : "front";
   }
 
   /**
@@ -162,30 +173,44 @@
     const frontText = frontElement.textContent.trim();
     const exampleText = exampleElement ? exampleElement.textContent.trim() : "";
     const currentCardText = frontText;
+    const currentCardSide = detectCardSide(); // 检测当前卡片面
 
     if (!frontText) return;
 
     // 初始化音频管理器
     initAudioManager();
 
-    // 检查卡片内容是否变化
+    // 检查卡片内容或卡片面是否变化
     const isNewCard =
       window.ankiAudioManager.currentCardText !== currentCardText;
+    const isCardFlippedToBack =
+      window.ankiAudioManager.currentCardSide === "front" &&
+      currentCardSide === "back";
+
     if (isNewCard) {
       console.log("Card text changed, stopping previous audio");
       window.ankiAudioManager.stopAll();
       window.ankiAudioManager.currentCardText = currentCardText;
+      window.ankiAudioManager.currentCardSide = currentCardSide;
+    } else if (isCardFlippedToBack) {
+      console.log("Card flipped to back, stopping previous audio");
+      window.ankiAudioManager.stopAll();
+      window.ankiAudioManager.currentCardSide = currentCardSide;
     }
 
     // 生成唯一标识符用于跟踪当前卡片
     const cardId = `card-${Date.now()}-${Math.random()}`;
     container.dataset.cardId = cardId;
+    container.dataset.cardSide = currentCardSide;
 
-    // 检测是否是当前卡片
+    // 检测是否是当前卡片且在同一面
     function isCurrentCard() {
       const currentFront = document.getElementById("front")?.textContent.trim();
+      const currentSide = detectCardSide();
       return (
-        currentFront === currentCardText && container.dataset.cardId === cardId
+        currentFront === currentCardText &&
+        container.dataset.cardId === cardId &&
+        container.dataset.cardSide === currentSide
       );
     }
 
@@ -232,6 +257,7 @@
           return;
         }
         window.ankiAudioManager.currentAudio = audio;
+        window.ankiAudioManager.currentCardSide = currentCardSide;
       });
 
       audio.addEventListener("playing", () => {
@@ -257,7 +283,7 @@
 
       const playAudio = () => {
         if (!isCurrentCard()) {
-          console.log("Card changed, not playing");
+          console.log("Card changed or flipped, not playing");
           return;
         }
         window.ankiAudioManager.stopAll();
@@ -265,6 +291,7 @@
         audio.play();
         window.ankiAudioManager.currentAudio = audio;
         window.ankiAudioManager.currentCardText = currentCardText;
+        window.ankiAudioManager.currentCardSide = currentCardSide;
       };
 
       playBtn.addEventListener("click", playAudio);
@@ -277,8 +304,14 @@
         }
       });
 
-      // 只在新卡片且不包含特定字符时自动播放
-      if (isNewCard && !frontText.includes(',"') && isCurrentCard()) {
+      // 只在新卡片、翻转到back面、或在 front 面且不包含特定字符时自动播放
+      const shouldAutoPlay =
+        (isNewCard &&
+          currentCardSide === "front" &&
+          !frontText.includes(',"')) ||
+        isCardFlippedToBack;
+
+      if (shouldAutoPlay && isCurrentCard()) {
         playAudio();
       }
     } catch (err) {
