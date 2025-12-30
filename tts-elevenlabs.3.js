@@ -15,7 +15,7 @@
   const ELEVENLABS_API_KEY =
     "sk_9b792f2b4ff0546e4c7c65e2a6d2972f74eb1fd04cff96e5";
   const VOICE_ID = "EkK6wL8GaH8IgBZTTDGJ"; // 日语语音ID
-  const MODEL_ID = "eleven_flash_v2_5";
+  const MODEL_ID = "eleven_multilingual_v2";
 
   // ============ 工具函数 ============
 
