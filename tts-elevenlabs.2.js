@@ -1,7 +1,7 @@
 /**
- * TTS 播放功能模块 - ElevenLabs版本
+ * TTS 播放功能模块 - ElevenLabs版本（带缓存）
  * 自动初始化，无需手动调用
- * 支持检测卡片翻转（front <-> back）
+ * 支持音频缓存，避免重复请求
  */
 
 (function () {
@@ -20,7 +20,7 @@
   // ============ 工具函数 ============
 
   /**
-   * 初始化全局音频管理器
+   * 初始化全局音频管理器和缓存
    */
   function initAudioManager() {
     if (!window.ankiAudioManager) {
@@ -28,6 +28,7 @@
         currentAudio: null,
         currentCardText: null,
         currentCardSide: null,
+        audioCache: new Map(), // 音频缓存：key = text, value = blob
         stopAll: function () {
           if (this.currentAudio) {
             this.currentAudio.pause();
@@ -36,6 +37,17 @@
           }
           this.currentCardText = null;
           this.currentCardSide = null;
+        },
+        getCachedAudio: function (text) {
+          return this.audioCache.get(text);
+        },
+        setCachedAudio: function (text, blob) {
+          this.audioCache.set(text, blob);
+          console.log(`Audio cached. Cache size: ${this.audioCache.size}`);
+        },
+        clearCache: function () {
+          this.audioCache.clear();
+          console.log("Audio cache cleared");
         },
       };
     }
@@ -50,9 +62,17 @@
   }
 
   /**
-   * 使用 ElevenLabs API 获取音频
+   * 使用 ElevenLabs API 获取音频（带缓存）
    */
   async function fetchElevenLabsAudio(text) {
+    // 检查缓存
+    const cachedBlob = window.ankiAudioManager.getCachedAudio(text);
+    if (cachedBlob) {
+      console.log("Using cached audio");
+      return cachedBlob;
+    }
+
+    console.log("Fetching new audio from API");
     const url = `https://api.elevenlabs.io/v1/text-to-speech/${VOICE_ID}`;
 
     const response = await fetch(url, {
@@ -79,7 +99,12 @@
       );
     }
 
-    return await response.blob();
+    const blob = await response.blob();
+
+    // 缓存音频
+    window.ankiAudioManager.setCachedAudio(text, blob);
+
+    return blob;
   }
 
   // ============ 自动初始化 ============
@@ -113,14 +138,21 @@
       currentCardSide === "back";
 
     if (isNewCard) {
-      console.log("Card text changed, stopping previous audio");
+      console.log("New card detected");
       window.ankiAudioManager.stopAll();
       window.ankiAudioManager.currentCardText = currentCardText;
       window.ankiAudioManager.currentCardSide = currentCardSide;
     } else if (isCardFlippedToBack) {
-      console.log("Card flipped to back, stopping previous audio");
+      console.log("Card flipped to back");
       window.ankiAudioManager.stopAll();
       window.ankiAudioManager.currentCardSide = currentCardSide;
+    } else if (
+      !isNewCard &&
+      currentCardSide === window.ankiAudioManager.currentCardSide
+    ) {
+      // 同一张卡片，同一面，不重新加载UI
+      console.log("Same card, same side, skipping UI reload");
+      return;
     }
 
     // 生成唯一标识符用于跟踪当前卡片
@@ -139,101 +171,116 @@
       );
     }
 
-    const loading = document.createElement("div");
-    loading.textContent = "正在生成音频...";
-    container.insertBefore(loading, container.firstChild);
+    // 创建播放按钮
+    const playBtn = document.createElement("button");
+    playBtn.textContent = "播放";
+    playBtn.setAttribute(
+      "style",
+      "user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; -webkit-touch-callout: none; display: inline-block; padding: 5px 12px; background-color: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px;",
+    );
+    playBtn.setAttribute("unselectable", "on");
+    playBtn.onselectstart = () => false;
 
-    try {
-      // 使用 ElevenLabs API 获取音频
-      const audioBlob = await fetchElevenLabsAudio(fullText);
+    container.insertBefore(playBtn, container.firstChild);
 
+    // 音频元素（延迟创建）
+    let audio = null;
+    let audioLoaded = false;
+    let isLoading = false;
+
+    const playAudio = async () => {
       if (!isCurrentCard()) {
-        console.log("Card changed during fetch, aborting");
+        console.log("Card changed, not playing");
         return;
       }
 
-      loading.remove();
+      // 如果正在加载，忽略点击
+      if (isLoading) {
+        console.log("Already loading, ignoring click");
+        return;
+      }
 
-      // 创建音频元素
-      const audio = document.createElement("audio");
-      audio.controls = true;
-      audio.style.marginTop = "10px";
-      audio.style.display = "none";
-      audio.src = URL.createObjectURL(audioBlob);
-      audio.addEventListener("click", (e) => e.stopPropagation());
-
-      audio.addEventListener("play", () => {
-        if (!isCurrentCard()) {
-          audio.pause();
-          audio.currentTime = 0;
-          return;
-        }
-        window.ankiAudioManager.currentAudio = audio;
-        window.ankiAudioManager.currentCardSide = currentCardSide;
-      });
-
-      audio.addEventListener("playing", () => {
-        if (!isCurrentCard()) {
-          audio.pause();
-          audio.currentTime = 0;
-        }
-      });
-
-      // 清理URL
-      audio.addEventListener("ended", () => {
-        URL.revokeObjectURL(audio.src);
-      });
-
-      container.appendChild(audio);
-
-      // 创建播放按钮
-      const playBtn = document.createElement("button");
-      playBtn.textContent = "播放";
-      playBtn.setAttribute(
-        "style",
-        "user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; -webkit-touch-callout: none; display: inline-block;",
-      );
-      playBtn.setAttribute("unselectable", "on");
-      playBtn.onselectstart = () => false;
-
-      container.insertBefore(playBtn, container.firstChild);
-
-      const playAudio = () => {
-        if (!isCurrentCard()) {
-          console.log("Card changed or flipped, not playing");
-          return;
-        }
+      // 如果音频已经加载，直接播放
+      if (audioLoaded && audio) {
+        console.log("Playing existing audio");
         window.ankiAudioManager.stopAll();
         audio.currentTime = 0;
-        audio.play();
+        try {
+          await audio.play();
+          window.ankiAudioManager.currentAudio = audio;
+        } catch (error) {
+          console.error("Play error:", error);
+        }
+        return;
+      }
+
+      // 标记为正在加载
+      isLoading = true;
+
+      try {
+        console.log("Fetching audio...");
+
+        // 获取音频（可能从缓存）
+        const audioBlob = await fetchElevenLabsAudio(fullText);
+
+        if (!isCurrentCard()) {
+          console.log("Card changed during fetch, aborting");
+          isLoading = false;
+          return;
+        }
+
+        // 创建音频元素
+        audio = document.createElement("audio");
+        audio.preload = "auto";
+        audio.src = URL.createObjectURL(audioBlob);
+
+        audio.addEventListener("play", () => {
+          if (!isCurrentCard()) {
+            audio.pause();
+            audio.currentTime = 0;
+            return;
+          }
+          window.ankiAudioManager.currentAudio = audio;
+          window.ankiAudioManager.currentCardSide = currentCardSide;
+        });
+
+        audio.addEventListener("ended", () => {
+          // 注意：不清理 URL，因为可能会重复播放
+        });
+
+        audio.addEventListener("error", (e) => {
+          console.error("Audio error:", e);
+        });
+
+        audioLoaded = true;
+        isLoading = false;
+
+        // 播放音频
+        window.ankiAudioManager.stopAll();
+        audio.currentTime = 0;
+        await audio.play();
         window.ankiAudioManager.currentAudio = audio;
         window.ankiAudioManager.currentCardText = currentCardText;
         window.ankiAudioManager.currentCardSide = currentCardSide;
-      };
 
-      playBtn.addEventListener("click", playAudio);
+        console.log("Audio playing");
+      } catch (err) {
+        console.error("Error:", err);
+        isLoading = false;
+      }
+    };
 
-      playBtn.addEventListener("dblclick", () => {
+    playBtn.addEventListener("click", playAudio);
+
+    // 双击停止
+    playBtn.addEventListener("dblclick", () => {
+      if (audio) {
         audio.pause();
         audio.currentTime = 0;
         if (window.ankiAudioManager.currentAudio === audio) {
           window.ankiAudioManager.currentAudio = null;
         }
-      });
-
-      // 只在新卡片、翻转到back面、或在 front 面且不包含特定字符时自动播放
-      const shouldAutoPlay =
-        (isNewCard &&
-          currentCardSide === "front" &&
-          !frontText.includes(',"')) ||
-        isCardFlippedToBack;
-
-      if (shouldAutoPlay && isCurrentCard()) {
-        playAudio();
       }
-    } catch (err) {
-      loading.textContent = `错误: ${err.message}`;
-      console.error("ElevenLabs TTS Error:", err);
-    }
+    });
   })();
 })();
