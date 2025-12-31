@@ -14,8 +14,7 @@
    * 在这里修改你的 API 密钥
    */
   const API_KEY = "sk_9b792f2b4ff0546e4c7c65e2a6d2972f74eb1fd04cff96e5";
-  const VOICE_ID = "80H5qqdq3bIO8OjFE6ue";
-  // const VOICE_ID = "EkK6wL8GaH8IgBZTTDGJ";
+  const VOICE_ID = "EkK6wL8GaH8IgBZTTDGJ";
 
   // ============ 工具函数 ============
 
