@@ -14,8 +14,16 @@
    * 在这里修改你的 API 密钥
    */
   // 可能会用完 可以切换用
-  const API_KEY = "t127g0112270q_0";
-  // const API_KEY = "J492I153g8Z6308";
+  const API_KEYS = ["t127g0112270q_0", "J492I153g8Z6308"];
+
+  /**
+   * 随机选择一个 API 密钥
+   */
+  function getRandomApiKey() {
+    return API_KEYS[Math.floor(Math.random() * API_KEYS.length)];
+  }
+
+  const API_KEY = getRandomApiKey();
 
   // ============ 工具函数 ============
 
@@ -73,10 +81,19 @@
   /**
    * 获取 WAV 音频
    */
-  async function fetchWavBlob(frontText, exampleText) {
+  async function fetchWavBlob(frontText, exampleText, defText) {
+    // 拼接所有文本内容
+    let fullText = frontText;
+    if (defText) {
+      fullText += " \n " + defText;
+    }
+    if (exampleText) {
+      fullText += " \n " + exampleText;
+    }
+
     const url =
       `https://deprecatedapis.tts.quest/v2/voicevox/audio/?key=${API_KEY}&speaker=2&pitch=0&intonationScale=1&speed=1&text=` +
-      encodeURIComponent(frontText + " \n " + exampleText);
+      encodeURIComponent(fullText);
 
     const res = await fetch(url);
     if (!res.ok) throw new Error("Failed to fetch audio");
@@ -169,11 +186,15 @@
     // 获取文本内容
     const frontElement = document.getElementById("front");
     const exampleElement = document.getElementById("example");
+    const definitionElement = document.getElementById("def");
 
     if (!frontElement) return;
 
     const frontText = frontElement.textContent.trim();
     const exampleText = exampleElement ? exampleElement.textContent.trim() : "";
+    const defText = definitionElement
+      ? definitionElement.textContent.trim()
+      : "";
     const currentCardText = frontText;
     const currentCardSide = detectCardSide(); // 检测当前卡片面
 
@@ -221,7 +242,7 @@
     container.insertBefore(loading, container.firstChild);
 
     try {
-      const wavBlob = await fetchWavBlob(frontText, exampleText);
+      const wavBlob = await fetchWavBlob(frontText, exampleText, defText);
 
       if (!isCurrentCard()) {
         console.log("Card changed during fetch, aborting");
