@@ -84,11 +84,11 @@
   async function fetchWavBlob(frontText, exampleText, defText) {
     // 拼接所有文本内容
     let fullText = frontText;
-    if (defText) {
-      fullText += " \n " + defText;
-    }
     if (exampleText) {
       fullText += " \n " + exampleText;
+    }
+    if (defText) {
+      fullText += " \n " + defText;
     }
 
     const url =
