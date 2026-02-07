@@ -2,6 +2,7 @@
  * TTS 播放功能模块
  * 自动初始化，无需手动调用
  * 支持检测卡片翻转（front <-> back）
+ * 修改：从 front 切换到 back 时自动播放，即使文本内容相同
  */
 
 (function () {
@@ -35,7 +36,8 @@
       window.ankiAudioManager = {
         currentAudio: null,
         currentContentKey: null,
-        currentAbortController: null, // 新增：用于取消正在进行的请求
+        currentCardSide: null, // 新增：跟踪当前卡片面
+        currentAbortController: null,
         stopAll: function () {
           if (this.currentAudio) {
             this.currentAudio.pause();
@@ -47,6 +49,7 @@
             this.currentAbortController = null;
           }
           this.currentContentKey = null;
+          this.currentCardSide = null;
         },
       };
     }
@@ -233,10 +236,12 @@
       window.ankiAudioManager.currentContentKey,
     );
     console.log("Current card side:", currentCardSide);
+    console.log("Previous card side:", window.ankiAudioManager.currentCardSide);
 
-    // 检查是否已经处理过这个内容
-    if (container.dataset.contentKey === currentContentKey) {
-      console.log("Content already loaded, skipping");
+    // 检查是否已经处理过这个内容和卡片面的组合
+    const combinedKey = currentContentKey + "|" + currentCardSide;
+    if (container.dataset.contentKey === combinedKey) {
+      console.log("Content and card side already loaded, skipping");
       return;
     }
 
@@ -244,11 +249,22 @@
     const isContentChanged =
       window.ankiAudioManager.currentContentKey !== currentContentKey;
 
-    // 如果内容变化了，停止之前的音频和所有正在进行的操作
+    // 检查卡片面是否变化（从 front 切换到 back）
+    const isSideChanged =
+      window.ankiAudioManager.currentCardSide !== currentCardSide;
+    const isFlippedToBack =
+      window.ankiAudioManager.currentCardSide === "front" &&
+      currentCardSide === "back";
+
+    // 如果内容变化了或者从front翻到back，停止之前的音频和所有正在进行的操作
     let shouldAutoPlay = false;
     if (isContentChanged) {
       console.log("Content changed, will auto-play new content");
-      window.ankiAudioManager.stopAll(); // 这会取消之前的AbortController
+      window.ankiAudioManager.stopAll();
+      shouldAutoPlay = true;
+    } else if (isFlippedToBack) {
+      console.log("Flipped from front to back, will auto-play");
+      window.ankiAudioManager.stopAll();
       shouldAutoPlay = true;
     }
 
@@ -262,8 +278,8 @@
     const ttsElements = container.querySelectorAll('[data-tts-element="true"]');
     ttsElements.forEach((el) => el.remove());
 
-    // 标记当前内容
-    container.dataset.contentKey = currentContentKey;
+    // 标记当前内容和卡片面
+    container.dataset.contentKey = combinedKey;
 
     // 创建新的AbortController用于当前操作
     const abortController = new AbortController();
@@ -277,7 +293,7 @@
         throw new DOMException("Aborted", "AbortError");
       }
       // 也检查内容是否已经变化
-      if (container.dataset.contentKey !== currentContentKey) {
+      if (container.dataset.contentKey !== combinedKey) {
         console.log("Content changed, aborting");
         throw new DOMException("Content changed", "AbortError");
       }
@@ -338,6 +354,7 @@
         console.log("Audio started playing");
         window.ankiAudioManager.currentAudio = audio;
         window.ankiAudioManager.currentContentKey = currentContentKey;
+        window.ankiAudioManager.currentCardSide = currentCardSide;
       });
 
       audio.addEventListener("ended", () => {
@@ -373,6 +390,7 @@
         audio.play().catch((e) => console.error("Play failed:", e));
         window.ankiAudioManager.currentAudio = audio;
         window.ankiAudioManager.currentContentKey = currentContentKey;
+        window.ankiAudioManager.currentCardSide = currentCardSide;
       };
 
       playBtn.addEventListener("click", playAudio);
@@ -391,10 +409,7 @@
         console.log("Auto-playing audio");
         setTimeout(() => {
           // 再次检查是否已被取消
-          if (
-            !signal.aborted &&
-            container.dataset.contentKey === currentContentKey
-          ) {
+          if (!signal.aborted && container.dataset.contentKey === combinedKey) {
             playAudio();
           }
         }, 100); // 添加小延迟确保音频元素就绪
