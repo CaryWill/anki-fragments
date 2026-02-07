@@ -3,6 +3,7 @@
  * 自动初始化，无需手动调用
  * 支持检测卡片翻转（front <-> back）
  * 修改：从 front 切换到 back 时自动播放，即使文本内容相同
+ * 新增：替换定义中「」内的"―"为正面单词
  */
 
 (function () {
@@ -27,6 +28,32 @@
   const API_KEY = getRandomApiKey();
 
   // ============ 工具函数 ============
+
+  /**
+   * 处理定义文本，替换「」内的"―"为正面单词
+   * @param {string} defText - 定义文本
+   * @param {string} frontText - 正面单词
+   * @returns {string} - 处理后的文本
+   */
+  function processDefinitionText(defText, frontText) {
+    if (!defText || !frontText) {
+      return defText;
+    }
+
+    // 使用正则表达式匹配「」中的内容，并替换其中的"―"
+    const processed = defText.replace(
+      /「([^」]*)」/g,
+      function (match, content) {
+        // 将内容中的所有"―"替换为正面单词
+        return "「" + content.replace(/―/g, frontText) + "」";
+      },
+    );
+
+    console.log("Original def:", defText);
+    console.log("Processed def:", processed);
+
+    return processed;
+  }
 
   /**
    * 初始化全局音频管理器
@@ -213,9 +240,12 @@
 
     const frontText = frontElement.textContent.trim();
     const exampleText = exampleElement ? exampleElement.textContent.trim() : "";
-    const defText = definitionElement
+    const originalDefText = definitionElement
       ? definitionElement.textContent.trim()
       : "";
+
+    // 处理定义文本，替换「」内的"―"
+    const defText = processDefinitionText(originalDefText, frontText);
 
     if (!frontText) {
       console.log("No front text found");
