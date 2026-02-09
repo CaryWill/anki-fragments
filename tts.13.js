@@ -38,7 +38,9 @@
    * 1. 如果文本中包含数字：过滤掉第一个数字之前的所有内容（包括词性标记〘xx〙和数字本身）
    *    例如："〘名〙スル\n1乳幼児を保護し、育てること。" -> "乳幼児を保護し、育てること。"
    *    例如："4節約する。きりつめる。" -> "節約する。きりつめる。"
-   * 2. 如果文本中不包含数字：不做任何过滤，保留原文
+   * 2. 如果文本中不包含数字但包含词性标记〘xx〙：只过滤掉词性标记部分
+   *    例如："〘動ラ五（四）〙勤めを果たすことができる。" -> "勤めを果たすことができる。"
+   * 3. 如果既没有数字也没有词性标记：不做任何过滤，保留原文
    *
    * @param {string} defText - 定义文本
    * @param {string} frontText - 正面单词
@@ -58,8 +60,14 @@
       filtered = defText.replace(/^[\s\S]*?(\d)/, "");
 
       console.log("Found digit, filtering content before first digit");
+    } else if (/〘[^〙]*〙/.test(defText)) {
+      // 如果没有数字但有词性标记，只过滤掉词性标记部分
+      // 匹配：开头的词性标记〘xx〙（可能有多个）及其后的空白字符
+      filtered = defText.replace(/^(?:〘[^〙]*〙\s*)*/, "");
+
+      console.log("Found word class marker, filtering it");
     } else {
-      console.log("No digit found, keeping original text");
+      console.log("No digit or word class marker found, keeping original text");
     }
 
     // 使用正则表达式匹配「」中的内容，并替换其中的"―"
