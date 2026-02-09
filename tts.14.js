@@ -41,6 +41,11 @@
    * 2. 如果文本中不包含数字但包含词性标记〘xx〙：只过滤掉词性标记部分
    *    例如："〘動ラ五（四）〙勤めを果たすことができる。" -> "勤めを果たすことができる。"
    * 3. 如果既没有数字也没有词性标记：不做任何过滤，保留原文
+   * 4. 「」内的替换：
+   *    - 如果是 "―・る" 模式：识别・后面的字符，从单词末尾匹配相同字符，替换并去重
+   *      例如：frontText="勤まる" + "―・る" -> "勤まる"（匹配末尾"まる"，去重后保留）
+   *    - 如果只是 "―"：直接替换为单词
+   *      例如：frontText="節約" + "―" -> "節約"
    *
    * @param {string} defText - 定义文本
    * @param {string} frontText - 正面单词
@@ -70,11 +75,46 @@
       console.log("No digit or word class marker found, keeping original text");
     }
 
-    // 使用正则表达式匹配「」中的内容，并替换其中的"―"
+    // 使用正则表达式匹配「」中的内容，并智能替换其中的"―"
     const processed = filtered.replace(
       /「([^」]*)」/g,
       function (match, content) {
-        // 将内容中的所有"―"替换为正面单词
+        // 检查是否包含 "―・" 模式
+        if (content.includes("―・")) {
+          // 提取 ・ 后面的部分
+          const afterDot = content.match(/―・(.+)/);
+          if (afterDot && afterDot[1]) {
+            const suffix = afterDot[1]; // 例如 "る仕事だ" 中的 "る"
+
+            // 从 frontText 末尾开始匹配，找出有多少字符与 suffix 开头匹配
+            let matchLength = 0;
+            for (
+              let i = 1;
+              i <= Math.min(frontText.length, suffix.length);
+              i++
+            ) {
+              const frontEnd = frontText.slice(-i);
+              const suffixStart = suffix.slice(0, i);
+              if (frontEnd === suffixStart) {
+                matchLength = i;
+              }
+            }
+
+            console.log("  Match pattern: ―・" + suffix);
+            console.log("  Front text: " + frontText);
+            console.log("  Matched length: " + matchLength);
+
+            // 构建替换结果：frontText + 去掉重复部分的 suffix
+            const replacement = frontText + suffix.slice(matchLength);
+
+            console.log("  Replacement: " + replacement);
+
+            // 替换整个 "―・..." 部分
+            return "「" + content.replace(/―・.+/, replacement) + "」";
+          }
+        }
+
+        // 如果没有 ・ 模式，直接将所有"―"替换为正面单词
         return "「" + content.replace(/―/g, frontText) + "」";
       },
     );
