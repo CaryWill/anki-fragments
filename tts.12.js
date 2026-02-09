@@ -4,6 +4,7 @@
  * 支持检测卡片翻转（front <-> back）
  * 修改：从 front 切换到 back 时自动播放，即使文本内容相同
  * 新增：替换定义中「」内的"―"为正面单词
+ * 新增：过滤掉定义开头的数字部分
  */
 
 (function () {
@@ -31,6 +32,14 @@
 
   /**
    * 处理定义文本，替换「」内的"―"为正面单词
+   * 并智能过滤掉开头的词性标记和数字部分
+   *
+   * 处理规则：
+   * 1. 如果文本中包含数字：过滤掉第一个数字之前的所有内容（包括词性标记〘xx〙和数字本身）
+   *    例如："〘名〙スル\n1乳幼児を保護し、育てること。" -> "乳幼児を保護し、育てること。"
+   *    例如："4節約する。きりつめる。" -> "節約する。きりつめる。"
+   * 2. 如果文本中不包含数字：不做任何过滤，保留原文
+   *
    * @param {string} defText - 定义文本
    * @param {string} frontText - 正面单词
    * @returns {string} - 处理后的文本
@@ -40,8 +49,21 @@
       return defText;
     }
 
+    let filtered = defText;
+
+    // 检查文本中是否包含数字
+    if (/\d/.test(defText)) {
+      // 过滤掉第一个数字之前的所有内容（包括词性标记、换行符等）
+      // 匹配：任意字符（包括换行）直到遇到第一个数字，然后删除这些内容
+      filtered = defText.replace(/^[\s\S]*?(\d)/, "");
+
+      console.log("Found digit, filtering content before first digit");
+    } else {
+      console.log("No digit found, keeping original text");
+    }
+
     // 使用正则表达式匹配「」中的内容，并替换其中的"―"
-    const processed = defText.replace(
+    const processed = filtered.replace(
       /「([^」]*)」/g,
       function (match, content) {
         // 将内容中的所有"―"替换为正面单词
@@ -50,6 +72,7 @@
     );
 
     console.log("Original def:", defText);
+    console.log("Filtered def:", filtered);
     console.log("Processed def:", processed);
 
     return processed;
@@ -244,7 +267,7 @@
       ? definitionElement.textContent.trim()
       : "";
 
-    // 处理定义文本，替换「」内的"―"
+    // 处理定义文本，替换「」内的"―"并过滤开头数字
     const defText = processDefinitionText(originalDefText, frontText);
 
     if (!frontText) {
