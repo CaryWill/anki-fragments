@@ -309,7 +309,10 @@
       return;
     }
 
-    const frontText = frontElement.textContent.trim();
+    const pronunciationElement = document.getElementById("pronunciation");
+    const frontText = pronunciationElement
+      ? pronunciationElement.textContent.trim()
+      : frontElement.textContent.trim();
     const exampleText = exampleElement ? exampleElement.textContent.trim() : "";
     const originalDefText = definitionElement
       ? definitionElement.textContent.trim()
