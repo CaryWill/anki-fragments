@@ -20,6 +20,12 @@
   }
 }
 
+body {
+  border-bottom: 1px dashed gainsboro;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
 .myCard,
 body {
   background-color: white;
@@ -111,7 +117,7 @@ button {
 }
 
 button:last-of-type {
-  margin-right: 0px !important;
+  /* margin-right: 0px !important; */
 }
 
 a,
