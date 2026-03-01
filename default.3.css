@@ -1,51 +1,44 @@
+@font-face {
+  font-family: "Huiwen Mincho Font";
+  /* https://github.com/bosswnx/huiwenmincho-improved/blob/main/README.md */
+  /* https://zhuanlan.zhihu.com/p/344103391 */
+  src: url("./Huiwen Ming Chao Font.ttf");
+}
+
+@font-face {
+  font-family: "HinaMincho-Regular";
+  src: url("./HinaMincho-Regular.ttf");
+}
+
 .card {
-  line-height: 1.5;
   text-align: left;
-  color: black;
+  line-height: 1.5 !important;
+  padding: 0 10px;
+  margin: 0;
+  * {
+    line-height: 1.5 !important;
+  }
+}
+
+.myCard,
+button {
   background-color: white;
-  padding-bottom: 50px;
 }
 
-div,
-p,
-span,
-h1,
-h2,
-h3,
-h4,
-h5,
-h6,
-a,
-strong,
-em,
-b,
-i,
-u,
-mark,
-small,
-sub,
-sup,
-del,
-ins,
-cite,
-q,
-blockquote,
-code,
-pre,
-label,
-button,
-input,
-textarea,
-li,
-dt,
-dd,
-th,
-td {
-  /* font-family: "FOT-筑紫A丸ゴシック Std" !important; */
+button:hover {
+  border: none !important;
 }
 
-#front {
-  white-space: pre-line;
+#button-container,
+#sticky-header,
+.card {
+  background-color: #f0eeef;
+}
+
+#button-container {
+  * {
+    user-select: none;
+  }
 }
 
 .soundLink {
@@ -60,63 +53,137 @@ td {
   display: none;
 }
 
-/* Example section */
-#example {
-  margin: 10px 0;
-  padding: 8px;
-  background: #f5f5f5;
-  border-left: 3px solid #4caf50;
-  border-radius: 4px;
-  font-size: 14px !important;
+#example:not(:empty)::before {
+  content: "📌 例子";
+  display: block;
+  margin-bottom: 8px;
+  font-style: normal !important;
+  font-weight: normal !important;
 }
 
-#example:not(:empty)::before {
-  content: "📌 ";
-  font-weight: bold;
+#def:not(:empty)::before {
+  content: "📜 定義";
+  display: block;
+  margin-bottom: 8px;
+  font-style: normal !important;
+  font-weight: normal !important;
 }
 
 #note:not(:empty)::before {
-  content: "📝 ";
-  font-weight: bold;
+  content: "📝 笔记 ";
+  display: block;
+  margin-bottom: 8px;
+  font-style: normal !important;
+  font-weight: normal !important;
 }
-/* Note section */
-#note {
-  margin: 10px 0;
-  padding: 8px;
-  background: #fff3cd;
-  border-left: 3px solid #ffc107;
-  border-radius: 4px;
-  font-size: 14px !important;
-}
+
 #images:not(:empty)::before {
   content: "";
-  font-weight: bold;
 }
 
-#source:not(:empty)::before {
-  content: "🔗 ";
-  font-weight: bold;
-}
-
-#button-container {
-  position: fixed;
-  right: 12px;
-  bottom: 12px;
-  * {
-    user-select: none;
-  }
-}
-
-*:empty {
-  display: none;
+:is(div, span):empty {
+  display: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
 }
 
 * {
-  font-size: 24px !important;
+  font-size: 20px !important;
+  /* font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important; */
   font-family:
-    -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+    "Huiwen Mincho Font",
+    -apple-system,
+    BlinkMacSystemFont,
+    system-ui,
+    sans-serif !important;
 }
 
 button {
   font-size: 18px !important;
+  box-shadow: none !important;
+  border-radius: 10px !important;
+  color: black !important;
+  padding: 3px 10px !important;
+  border: none;
+}
+
+a,
+#source {
+  font-size: 14px !important;
+  word-break: break-all;
+}
+
+#sticky-header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  min-height: 60px;
+}
+
+#sticky-header video {
+  width: 100%;
+  display: block;
+}
+
+#button-container {
+  text-align: right;
+  padding: 10px 0 !important;
+}
+
+#back:not(:empty)::before {
+  content: "⚡️ 答案";
+  margin-bottom: 8px;
+  display: block;
+  font-style: normal !important;
+  font-weight: normal !important;
+}
+
+blockquote {
+  margin: 1.5em 0;
+  padding: 0 1em;
+  color: #6a737d;
+  border-left: 0.25em solid #dfe2e5;
+}
+
+#note,
+#example {
+  font-size: 20px !important;
+  font-weight: normal !important;
+  font-style: italic !important;
+  * {
+    font-size: 20px !important;
+    font-weight: normal !important;
+    font-style: italic !important;
+  }
+}
+
+.myCard {
+  border-radius: 16px;
+  margin-bottom: 12px;
+  padding: 16px;
+}
+
+#front,
+#example,
+#def {
+  font-weight: bold;
+  font-family: "HinaMincho-Regular" !important;
+  * {
+    font-family: "HinaMincho-Regular" !important;
+  }
+}
+
+.listenOnlyIndicator {
+  font-family: "HinaMincho-Regular" !important;
+  text-align: center;
+  margin-top: 30px;
+}
+
+ruby {
+  ruby-position: over !important;
+}
+
+rt {
+  font-size: 0.6em !important;
+  line-height: 1 !important;
 }
