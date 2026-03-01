@@ -21,8 +21,9 @@
 }
 
 .myCard,
-button {
+body {
   background-color: white;
+  /* background-color: #f0eeef; */
 }
 
 button:hover {
@@ -30,9 +31,8 @@ button:hover {
 }
 
 #button-container,
-#sticky-header,
 .card {
-  background-color: #f0eeef;
+  /* background-color: #f0eeef; */
 }
 
 #button-container {
@@ -107,6 +107,7 @@ button {
   border: none;
   margin: 0 !important;
   margin-right: 8px !important;
+  background: #f0eeef;
 }
 
 button:last-of-type {
@@ -124,6 +125,8 @@ a,
   top: 0;
   z-index: 1000;
   min-height: 40px;
+  border-bottom: 1px dashed gainsboro;
+  background: white;
 }
 
 #sticky-header video {
