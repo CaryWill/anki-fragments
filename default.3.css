@@ -174,7 +174,7 @@ blockquote {
 }
 
 .myCard {
-  padding: 6px 8px;
+  padding: 16px 8px;
   border-top: 1px dashed gainsboro;
 }
 
@@ -206,6 +206,11 @@ ruby {
 }
 
 rt {
-  font-size: 0.6em !important;
+  font-size: 12px !important;
   line-height: 1 !important;
+  font-family:
+    "Huiwen Mincho Font",
+    -apple-system,
+    BlinkMacSystemFont,
+    system-ui;
 }
