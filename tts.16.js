@@ -215,6 +215,9 @@
       fullText += " \n " + defText;
     }
 
+    // remove pronunciation in the all text
+    fullText = fullText.replace(/[–・]/g, "");
+
     const url =
       `https://deprecatedapis.tts.quest/v2/voicevox/audio/?key=${API_KEY}&speaker=2&pitch=0&intonationScale=1&speed=1&text=` +
       encodeURIComponent(fullText);
