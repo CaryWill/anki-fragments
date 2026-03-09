@@ -3,14 +3,13 @@
  * - 支持 2 种字体时显示 toggle 按钮
  * - 支持 3 种及以上字体时显示 select 下拉框
  * - 使用 localStorage 缓存选择
- * - 通过动态 CSS 实现，支持 DOM 动态更新
+ * - 使用 MutationObserver 监听 DOM 变化自动应用字体
  */
 
 (function () {
   "use strict";
 
   const STORAGE_KEY = "anki_font_pref_v1";
-  const STYLE_ID = "anki-font-switcher-style";
 
   // ===== 配置区：在这里添加/删除字体 =====
   const FONTS = [
@@ -37,52 +36,112 @@
   ];
   // ===== 配置区结束 =====
 
+  let currentFont = null;
+  let observer = null;
+
   /**
-   * 生成 CSS 规则字符串
+   * 应用字体到所有元素
    */
-  function generateCSS(font) {
-    if (font.isDefault) {
-      // 默认字体：只应用到特定选择器及其子元素
-      if (!font.targets || font.targets.length === 0) {
-        return "";
-      }
+  function applyFontToAll(fontFamily) {
+    document.querySelectorAll("*").forEach((el) => {
+      el.style.setProperty("font-family", fontFamily, "important");
+    });
+  }
 
-      const selectors = [];
-      font.targets.forEach((target) => {
-        selectors.push(target);
-        selectors.push(`${target} *`);
+  /**
+   * 应用默认字体（只针对特定选择器，其他元素移除 inline style）
+   */
+  function applyDefaultFont(font) {
+    // 1. 先清除所有元素的 inline font-family
+    document.querySelectorAll("*").forEach((el) => {
+      el.style.removeProperty("font-family");
+    });
+
+    // 2. 只给目标元素应用该字体
+    if (font.targets && font.targets.length > 0) {
+      font.targets.forEach((sel) => {
+        document.querySelectorAll(sel).forEach((el) => {
+          el.style.setProperty("font-family", font.family, "important");
+          // 同时应用到子元素
+          el.querySelectorAll("*").forEach((child) => {
+            child.style.setProperty("font-family", font.family, "important");
+          });
+        });
       });
-
-      return `
-        ${selectors.join(",\n")} {
-          font-family: ${font.family} !important;
-        }
-      `;
-    } else {
-      // 非默认字体：应用到所有元素
-      return `
-        * {
-          font-family: ${font.family} !important;
-        }
-      `;
     }
   }
 
   /**
-   * 应用字体样式（通过动态 style 标签）
+   * 应用字体到新添加的元素
+   */
+  function applyFontToElement(element, font) {
+    if (font.isDefault) {
+      // 默认字体模式：检查元素是否在目标选择器内
+      const isInTarget = font.targets.some((selector) => {
+        return element.matches(selector) || element.closest(selector);
+      });
+
+      if (isInTarget) {
+        element.style.setProperty("font-family", font.family, "important");
+        // 应用到其子元素
+        element.querySelectorAll("*").forEach((child) => {
+          child.style.setProperty("font-family", font.family, "important");
+        });
+      }
+    } else {
+      // 非默认字体：应用到所有元素
+      element.style.setProperty("font-family", font.family, "important");
+      element.querySelectorAll("*").forEach((child) => {
+        child.style.setProperty("font-family", font.family, "important");
+      });
+    }
+  }
+
+  /**
+   * 根据字体配置应用样式
    */
   function applyFont(font) {
-    let styleEl = document.getElementById(STYLE_ID);
+    currentFont = font;
 
-    // 如果不存在，创建 style 标签
-    if (!styleEl) {
-      styleEl = document.createElement("style");
-      styleEl.id = STYLE_ID;
-      document.head.appendChild(styleEl);
+    if (font.isDefault) {
+      applyDefaultFont(font);
+    } else {
+      applyFontToAll(font.family);
     }
 
-    // 更新 CSS 内容
-    styleEl.textContent = generateCSS(font);
+    console.log(`✅ 字体已切换到: ${font.name}`);
+  }
+
+  /**
+   * 启动 MutationObserver 监听 DOM 变化
+   */
+  function startObserver() {
+    // 如果已有 observer，先断开
+    if (observer) {
+      observer.disconnect();
+    }
+
+    observer = new MutationObserver((mutations) => {
+      if (!currentFont) return;
+
+      mutations.forEach((mutation) => {
+        // 处理新添加的节点
+        mutation.addedNodes.forEach((node) => {
+          // 只处理元素节点
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            applyFontToElement(node, currentFont);
+          }
+        });
+      });
+    });
+
+    // 开始监听整个 body 的变化
+    observer.observe(document.body, {
+      childList: true, // 监听子节点的添加和删除
+      subtree: true, // 监听所有后代节点
+    });
+
+    console.log("🔍 MutationObserver 已启动");
   }
 
   /**
@@ -107,8 +166,6 @@
   function createToggleButton(container) {
     const btn = document.createElement("button");
     btn.type = "button";
-    btn.style.marginRight = "8px";
-    btn.style.display = "inline-block";
 
     let currentFontId = getSavedFontId();
 
@@ -151,12 +208,6 @@
     label.style.marginRight = "4px";
 
     const select = document.createElement("select");
-    select.style.fontSize = "18px";
-    select.style.padding = "3px 8px";
-    select.style.border = "none";
-    select.style.borderRadius = "3px";
-    select.style.background = "#f0eeef";
-    select.style.cursor = "pointer";
 
     // 添加选项
     FONTS.forEach((font) => {
@@ -203,6 +254,9 @@
     } else {
       createSelectDropdown(container);
     }
+
+    // 启动 Observer
+    startObserver();
   }
 
   /**
@@ -211,7 +265,10 @@
   (function autoInit() {
     const init = () => {
       const container = document.getElementById("button-container");
-      if (!container) return;
+      if (!container) {
+        console.warn("找不到 #button-container");
+        return;
+      }
       initFontSwitcher(container);
     };
 
