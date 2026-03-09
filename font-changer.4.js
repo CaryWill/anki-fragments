@@ -220,6 +220,8 @@
     // 设置初始值
     const currentFontId = getSavedFontId();
     select.value = currentFontId;
+
+    // 初次应用保存的字体
     applyFont(getFontById(currentFontId));
 
     // 监听变化
@@ -246,6 +248,7 @@
     if (FONTS.length === 1) {
       // 只有一种字体，直接应用，不显示控件
       applyFont(FONTS[0]);
+      startObserver();
       return;
     }
 
@@ -260,22 +263,45 @@
   }
 
   /**
+   * 提前应用保存的字体（在 UI 初始化之前）
+   */
+  function applyInitialFont() {
+    const savedFontId = getSavedFontId();
+    const font = getFontById(savedFontId);
+    applyFont(font);
+    console.log(`🎨 页面加载时应用保存的字体: ${font.name}`);
+  }
+
+  /**
    * 自动初始化
    */
   (function autoInit() {
-    const init = () => {
-      const container = document.getElementById("button-container");
-      if (!container) {
-        console.warn("找不到 #button-container");
-        return;
-      }
-      initFontSwitcher(container);
-    };
-
+    // 尽早应用保存的字体
     if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", init);
+      // 文档还在加载，等待 DOMContentLoaded
+      document.addEventListener("DOMContentLoaded", () => {
+        applyInitialFont();
+
+        // 然后初始化 UI
+        const container = document.getElementById("button-container");
+        if (container) {
+          initFontSwitcher(container);
+        } else {
+          console.warn("找不到 #button-container，但字体已应用");
+          startObserver();
+        }
+      });
     } else {
-      init();
+      // 文档已加载完成，立即应用
+      applyInitialFont();
+
+      const container = document.getElementById("button-container");
+      if (container) {
+        initFontSwitcher(container);
+      } else {
+        console.warn("找不到 #button-container，但字体已应用");
+        startObserver();
+      }
     }
   })();
 })();
