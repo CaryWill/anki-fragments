@@ -3,12 +3,14 @@
  * - 支持 2 种字体时显示 toggle 按钮
  * - 支持 3 种及以上字体时显示 select 下拉框
  * - 使用 localStorage 缓存选择
+ * - 通过动态 CSS 实现，支持 DOM 动态更新
  */
 
 (function () {
   "use strict";
 
   const STORAGE_KEY = "anki_font_pref_v1";
+  const STYLE_ID = "anki-font-switcher-style";
 
   // ===== 配置区：在这里添加/删除字体 =====
   const FONTS = [
@@ -36,46 +38,51 @@
   // ===== 配置区结束 =====
 
   /**
-   * 应用字体到所有元素
+   * 生成 CSS 规则字符串
    */
-  function applyFontToAll(fontFamily) {
-    document.querySelectorAll("*").forEach((el) => {
-      el.style.setProperty("font-family", fontFamily, "important");
-    });
-  }
+  function generateCSS(font) {
+    if (font.isDefault) {
+      // 默认字体：只应用到特定选择器及其子元素
+      if (!font.targets || font.targets.length === 0) {
+        return "";
+      }
 
-  /**
-   * 应用默认字体（只针对特定选择器，其他元素移除 inline style）
-   */
-  function applyDefaultFont(font) {
-    // 1. 先清除所有元素的 inline font-family
-    document.querySelectorAll("*").forEach((el) => {
-      el.style.removeProperty("font-family");
-    });
-
-    // 2. 只给目标元素应用该字体
-    if (font.targets && font.targets.length > 0) {
-      font.targets.forEach((sel) => {
-        document.querySelectorAll(sel).forEach((el) => {
-          el.style.setProperty("font-family", font.family, "important");
-          // 同时应用到子元素
-          el.querySelectorAll("*").forEach((child) => {
-            child.style.setProperty("font-family", font.family, "important");
-          });
-        });
+      const selectors = [];
+      font.targets.forEach((target) => {
+        selectors.push(target);
+        selectors.push(`${target} *`);
       });
+
+      return `
+        ${selectors.join(",\n")} {
+          font-family: ${font.family} !important;
+        }
+      `;
+    } else {
+      // 非默认字体：应用到所有元素
+      return `
+        * {
+          font-family: ${font.family} !important;
+        }
+      `;
     }
   }
 
   /**
-   * 根据字体配置应用样式
+   * 应用字体样式（通过动态 style 标签）
    */
   function applyFont(font) {
-    if (font.isDefault) {
-      applyDefaultFont(font);
-    } else {
-      applyFontToAll(font.family);
+    let styleEl = document.getElementById(STYLE_ID);
+
+    // 如果不存在，创建 style 标签
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = STYLE_ID;
+      document.head.appendChild(styleEl);
     }
+
+    // 更新 CSS 内容
+    styleEl.textContent = generateCSS(font);
   }
 
   /**
