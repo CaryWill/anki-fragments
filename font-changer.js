@@ -9,20 +9,27 @@
  * 说明：确保这两个字体在 Anki 的 media collection 中，并且 CSS 里已 @font-face 命名为
  * "HinaMincho-Regular" / "LXGWWenKai-Regular"（或按你的实际 font-family 名称改下面常量）
  */
+
 (function () {
   "use strict";
 
   const STORAGE_KEY = "anki_font_pref_v1";
 
-  // 按你的 @font-face 的 font-family 名称修改这里
   const FONT_MINCHO = "HinaMincho-Regular";
   const FONT_WENKAI = "LXGWWenKai-Regular";
 
-  const TARGET_SELECTOR = ".listenOnlyIndicator, #front, #example, #def";
+  const TARGETS = [".listenOnlyIndicator", "#front", "#example", "#def"];
 
-  function applyFont(fontFamily) {
-    document.querySelectorAll(TARGET_SELECTOR).forEach((el) => {
-      el.style.fontFamily = fontFamily;
+  function applyFontImportant(fontFamily) {
+    TARGETS.forEach((sel) => {
+      document.querySelectorAll(sel).forEach((el) => {
+        // 覆盖本元素（带 !important）
+        el.style.setProperty("font-family", fontFamily, "important");
+        // 覆盖其所有子元素（因为你 CSS 里也对 * 写死了）
+        el.querySelectorAll("*").forEach((child) => {
+          child.style.setProperty("font-family", fontFamily, "important");
+        });
+      });
     });
   }
 
@@ -37,41 +44,38 @@
 
   function initFontToggleButton(container) {
     const btn = document.createElement("button");
-    btn.setAttribute("type", "button");
-    btn.setAttribute("style", "margin-right: 10px; display: inline-block;");
-    btn.setAttribute("aria-label", "切换字体");
+    btn.type = "button";
+    btn.style.marginRight = "8px";
+    btn.style.display = "inline-block";
 
-    const renderText = (currentFont) => {
+    let currentFont = getSavedFont();
+
+    const render = () => {
       btn.textContent =
         currentFont === FONT_WENKAI ? "字体：文楷" : "字体：明朝";
     };
 
-    // 初始应用（从缓存读）
-    let currentFont = getSavedFont();
-    applyFont(currentFont);
-    renderText(currentFont);
+    // 初次应用
+    applyFontImportant(currentFont);
+    render();
 
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-
       currentFont = currentFont === FONT_WENKAI ? FONT_MINCHO : FONT_WENKAI;
-      applyFont(currentFont);
+      applyFontImportant(currentFont);
       saveFont(currentFont);
-      renderText(currentFont);
+      render();
     });
 
-    // 放到最前面
+    // 放最前面
     container.insertBefore(btn, container.firstChild);
-    return btn;
   }
 
-  // 自动初始化
   (function autoInit() {
     const init = () => {
       const container = document.getElementById("button-container");
       if (!container) return;
-
       initFontToggleButton(container);
     };
 

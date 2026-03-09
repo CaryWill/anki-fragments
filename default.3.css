@@ -10,6 +10,11 @@
   src: url("./HinaMincho-Regular.ttf");
 }
 
+@font-face {
+  font-family: "LXGWWenKai-Regular";
+  src: url("./LXGWWenKai-Regular.ttf");
+}
+
 .card {
   text-align: left;
   line-height: 1.5 !important;
