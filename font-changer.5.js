@@ -10,6 +10,7 @@
   "use strict";
 
   const STORAGE_KEY = "anki_font_pref_v1";
+  const BUTTON_CLASS = "font-switcher-button"; // 标记按钮，避免被字体样式影响
 
   // ===== 配置区：在这里添加/删除字体 =====
   const FONTS = [
@@ -40,11 +41,38 @@
   let observer = null;
 
   /**
-   * 应用字体到所有元素
+   * 检查元素是否应该被排除（如按钮等控件）
+   */
+  function shouldExcludeElement(element) {
+    // 检查是否是字体切换按钮或其子元素
+    if (element.classList && element.classList.contains(BUTTON_CLASS)) {
+      return true;
+    }
+    if (element.closest && element.closest(`.${BUTTON_CLASS}`)) {
+      return true;
+    }
+    // 检查是否有 data 属性标记
+    if (element.hasAttribute && element.hasAttribute("data-font-switcher")) {
+      return true;
+    }
+    // 检查是否是 #button-container 中的 button 或 select
+    if (element.tagName === "BUTTON" || element.tagName === "SELECT") {
+      const container = element.closest("#button-container");
+      if (container) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 应用字体到所有元素（排除按钮）
    */
   function applyFontToAll(fontFamily) {
     document.querySelectorAll("*").forEach((el) => {
-      el.style.setProperty("font-family", fontFamily, "important");
+      if (!shouldExcludeElement(el)) {
+        el.style.setProperty("font-family", fontFamily, "important");
+      }
     });
   }
 
@@ -52,20 +80,30 @@
    * 应用默认字体（只针对特定选择器，其他元素移除 inline style）
    */
   function applyDefaultFont(font) {
-    // 1. 先清除所有元素的 inline font-family
+    // 1. 先清除所有元素的 inline font-family（排除按钮）
     document.querySelectorAll("*").forEach((el) => {
-      el.style.removeProperty("font-family");
+      if (!shouldExcludeElement(el)) {
+        el.style.removeProperty("font-family");
+      }
     });
 
     // 2. 只给目标元素应用该字体
     if (font.targets && font.targets.length > 0) {
       font.targets.forEach((sel) => {
         document.querySelectorAll(sel).forEach((el) => {
-          el.style.setProperty("font-family", font.family, "important");
-          // 同时应用到子元素
-          el.querySelectorAll("*").forEach((child) => {
-            child.style.setProperty("font-family", font.family, "important");
-          });
+          if (!shouldExcludeElement(el)) {
+            el.style.setProperty("font-family", font.family, "important");
+            // 同时应用到子元素
+            el.querySelectorAll("*").forEach((child) => {
+              if (!shouldExcludeElement(child)) {
+                child.style.setProperty(
+                  "font-family",
+                  font.family,
+                  "important",
+                );
+              }
+            });
+          }
         });
       });
     }
@@ -75,6 +113,11 @@
    * 应用字体到新添加的元素
    */
   function applyFontToElement(element, font) {
+    // 跳过按钮等控件
+    if (shouldExcludeElement(element)) {
+      return;
+    }
+
     if (font.isDefault) {
       // 默认字体模式：检查元素是否在目标选择器内
       const isInTarget = font.targets.some((selector) => {
@@ -85,14 +128,18 @@
         element.style.setProperty("font-family", font.family, "important");
         // 应用到其子元素
         element.querySelectorAll("*").forEach((child) => {
-          child.style.setProperty("font-family", font.family, "important");
+          if (!shouldExcludeElement(child)) {
+            child.style.setProperty("font-family", font.family, "important");
+          }
         });
       }
     } else {
       // 非默认字体：应用到所有元素
       element.style.setProperty("font-family", font.family, "important");
       element.querySelectorAll("*").forEach((child) => {
-        child.style.setProperty("font-family", font.family, "important");
+        if (!shouldExcludeElement(child)) {
+          child.style.setProperty("font-family", font.family, "important");
+        }
       });
     }
   }
@@ -166,6 +213,8 @@
   function createToggleButton(container) {
     const btn = document.createElement("button");
     btn.type = "button";
+    btn.className = BUTTON_CLASS; // 添加标记类
+    btn.setAttribute("data-font-switcher", "true"); // 额外标记
 
     let currentFontId = getSavedFontId();
 
@@ -174,25 +223,33 @@
       btn.textContent = `字体：${font.name}`;
     };
 
-    // 初次应用
-    applyFont(getFontById(currentFontId));
     render();
 
     btn.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
 
+      console.log("🖱️ 按钮被点击");
+
       // Toggle 到下一个字体
       const currentIndex = FONTS.findIndex((f) => f.id === currentFontId);
       const nextIndex = (currentIndex + 1) % FONTS.length;
       currentFontId = FONTS[nextIndex].id;
+
+      console.log(`🔄 切换到: ${currentFontId}`);
 
       applyFont(getFontById(currentFontId));
       saveFontId(currentFontId);
       render();
     });
 
+    // 确保按钮可点击
+    btn.style.pointerEvents = "auto";
+    btn.style.cursor = "pointer";
+
     container.insertBefore(btn, container.firstChild);
+
+    console.log("✨ 按钮已创建并添加到页面");
   }
 
   /**
@@ -202,18 +259,24 @@
     const wrapper = document.createElement("span");
     wrapper.style.marginRight = "8px";
     wrapper.style.display = "inline-block";
+    wrapper.className = BUTTON_CLASS; // 添加标记类
+    wrapper.setAttribute("data-font-switcher", "true");
 
     const label = document.createElement("label");
     label.textContent = "字体：";
     label.style.marginRight = "4px";
+    label.setAttribute("data-font-switcher", "true");
 
     const select = document.createElement("select");
+    select.className = BUTTON_CLASS; // 添加标记类
+    select.setAttribute("data-font-switcher", "true");
 
     // 添加选项
     FONTS.forEach((font) => {
       const option = document.createElement("option");
       option.value = font.id;
       option.textContent = font.name;
+      option.setAttribute("data-font-switcher", "true");
       select.appendChild(option);
     });
 
@@ -221,19 +284,24 @@
     const currentFontId = getSavedFontId();
     select.value = currentFontId;
 
-    // 初次应用保存的字体
-    applyFont(getFontById(currentFontId));
-
     // 监听变化
     select.addEventListener("change", (e) => {
+      console.log("🖱️ 下拉框被改变");
       const fontId = e.target.value;
+      console.log(`🔄 切换到: ${fontId}`);
       applyFont(getFontById(fontId));
       saveFontId(fontId);
     });
 
+    // 确保下拉框可点击
+    select.style.pointerEvents = "auto";
+    select.style.cursor = "pointer";
+
     wrapper.appendChild(label);
     wrapper.appendChild(select);
     container.insertBefore(wrapper, container.firstChild);
+
+    console.log("✨ 下拉框已创建并添加到页面");
   }
 
   /**
@@ -245,17 +313,20 @@
       return;
     }
 
-    if (FONTS.length === 1) {
-      // 只有一种字体，直接应用，不显示控件
-      applyFont(FONTS[0]);
-      startObserver();
-      return;
-    }
-
+    // 先创建 UI 控件（在应用字体之前）
     if (FONTS.length === 2) {
       createToggleButton(container);
-    } else {
+    } else if (FONTS.length > 2) {
       createSelectDropdown(container);
+    }
+
+    // 然后应用保存的字体（此时按钮已存在，会被排除）
+    if (FONTS.length > 1) {
+      const savedFontId = getSavedFontId();
+      applyFont(getFontById(savedFontId));
+    } else {
+      // 只有一种字体
+      applyFont(FONTS[0]);
     }
 
     // 启动 Observer
@@ -263,45 +334,28 @@
   }
 
   /**
-   * 提前应用保存的字体（在 UI 初始化之前）
-   */
-  function applyInitialFont() {
-    const savedFontId = getSavedFontId();
-    const font = getFontById(savedFontId);
-    applyFont(font);
-    console.log(`🎨 页面加载时应用保存的字体: ${font.name}`);
-  }
-
-  /**
    * 自动初始化
    */
   (function autoInit() {
-    // 尽早应用保存的字体
-    if (document.readyState === "loading") {
-      // 文档还在加载，等待 DOMContentLoaded
-      document.addEventListener("DOMContentLoaded", () => {
-        applyInitialFont();
-
-        // 然后初始化 UI
-        const container = document.getElementById("button-container");
-        if (container) {
-          initFontSwitcher(container);
-        } else {
-          console.warn("找不到 #button-container，但字体已应用");
-          startObserver();
-        }
-      });
-    } else {
-      // 文档已加载完成，立即应用
-      applyInitialFont();
-
+    const init = () => {
       const container = document.getElementById("button-container");
-      if (container) {
-        initFontSwitcher(container);
-      } else {
-        console.warn("找不到 #button-container，但字体已应用");
+      if (!container) {
+        console.warn("找不到 #button-container");
+        // 即使找不到容器，也应用保存的字体
+        const savedFontId = getSavedFontId();
+        applyFont(getFontById(savedFontId));
         startObserver();
+        return;
       }
+
+      initFontSwitcher(container);
+    };
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init);
+    } else {
+      // 使用 setTimeout 确保 DOM 完全准备好
+      setTimeout(init, 0);
     }
   })();
 })();
