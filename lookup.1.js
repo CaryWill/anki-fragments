@@ -7,6 +7,21 @@
   "use strict";
 
   /**
+   * 通过 URL Scheme 打开外部 App
+   * @param {string} url - URL Scheme
+   */
+  function openScheme(url) {
+    // 方法一：创建隐藏 <a> 标签并模拟点击（最兼容）
+    const a = document.createElement("a");
+    a.href = url;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    console.log("方法一（<a> 点击）已触发:", url);
+  }
+
+  /**
    * 初始化查词按钮
    * @param {HTMLElement} container - 容器元素
    * @param {string} frontText - 正面文本
@@ -37,7 +52,6 @@
       e.stopPropagation();
 
       let textToLookup = "";
-      console.log("savedSelection:", savedSelection);
 
       if (savedSelection) {
         textToLookup = savedSelection;
@@ -56,7 +70,7 @@
       const scheme = `mkdictionaries:///?text=${encodedText}`;
 
       console.log("跳转 URL:", scheme);
-      window.location.href = scheme;
+      openScheme(scheme);
 
       savedSelection = null;
     });
@@ -94,12 +108,10 @@
         return;
       }
 
-      // 初始化查词按钮
       initLookupButton(container, frontText);
       console.log("查词按钮已自动初始化");
     };
 
-    // 如果 DOM 已加载，立即执行
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", init);
     } else {
