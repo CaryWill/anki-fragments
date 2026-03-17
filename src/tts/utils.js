@@ -1,5 +1,3 @@
-import lamejs from "lamejs";
-
 /**
  * utils.js — 公共工具模块
  *
