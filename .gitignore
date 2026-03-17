@@ -1,0 +1,8 @@
+# secrets — never commit real keys
+.env
+
+# built bundle contains baked-in secrets
+dist/
+
+# deps
+node_modules/

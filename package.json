@@ -1,0 +1,28 @@
+{
+  "name": "anki-fragments",
+  "version": "1.0.0",
+  "description": "",
+  "homepage": "https://github.com/CaryWill/anki-fragments#readme",
+  "bugs": {
+    "url": "https://github.com/CaryWill/anki-fragments/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/CaryWill/anki-fragments.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "font-changer.5.js",
+  "devDependencies": {
+    "esbuild": "^0.27.4"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "build:dev": "node build.mjs --dev",
+    "watch": "node --watch build.mjs --dev"
+  },
+  "dependencies": {
+    "lamejs": "^1.2.1"
+  }
+}
