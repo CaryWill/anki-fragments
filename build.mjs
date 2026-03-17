@@ -98,6 +98,7 @@ await esbuild.build({
   target: ["es2020"],
   minify: !isDev,
   sourcemap: isDev ? "inline" : false,
+  external: ["lamejs"],
   define: toDefines(env),
 });
 console.log(
