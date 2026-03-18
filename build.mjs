@@ -4,6 +4,7 @@
  * 构建策略：
  *   src/tts/index.js     → esbuild bundle（需要注入 .env 密钥）
  *   src/*.js / src/*.css → 直接复制（已是 Anki media 命名格式，无需打包）
+ *   src/assets/**        → 递归遍历所有文件，flat 复制到 Anki media
  *
  * 构建完成后将 dist/ 下所有文件复制到 Anki media 目录。
  */
@@ -79,6 +80,29 @@ function copyToAnki(distDir, ankiDir) {
   }
 }
 
+// ── 递归遍历 srcDir 下所有文件，flat 复制到 destDir ──────────
+// 遇到子目录就递归进去，但 destDir 始终不变（不创建子目录）
+
+function copyFilesFlat(srcDir, destDir) {
+  if (!existsSync(srcDir)) {
+    console.warn(`[build] Warning: assets dir not found: ${srcDir}`);
+    return;
+  }
+
+  for (const entry of readdirSync(srcDir)) {
+    const srcPath = join(srcDir, entry);
+
+    if (statSync(srcPath).isDirectory()) {
+      // 递归进入子目录，destDir 保持不变 → flat 输出
+      copyFilesFlat(srcPath, destDir);
+    } else {
+      const destPath = join(destDir, entry);
+      copyFileSync(srcPath, destPath);
+      console.log(`[build] assets ${srcPath} → ${destPath}`);
+    }
+  }
+}
+
 // ── 主流程 ───────────────────────────────────────────────────
 
 const isDev = process.argv.includes("--dev");
@@ -110,3 +134,12 @@ copyStaticFiles("src", distDir);
 
 // 3. Deploy everything in dist/ to Anki
 copyToAnki(distDir, ankiDir);
+
+// 4. 将 src/assets/ 下所有文件（递归 flat）直接复制到 Anki media
+if (existsSync(ankiDir)) {
+  copyFilesFlat("src/assets", ankiDir);
+} else {
+  console.warn(
+    `[build] Warning: Anki media dir not found, skipping assets copy`,
+  );
+}
