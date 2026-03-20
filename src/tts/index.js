@@ -19,7 +19,7 @@ import { ENV } from "./env.js";
 
 function createProvider() {
   // ── 使用 VoiceVox（无需配置） ──
-  return new VoiceVoxProvider();
+  // return new VoiceVoxProvider();
 
   // ── 使用 Azure ──
   return new AzureProvider({
@@ -82,20 +82,22 @@ class TtsController {
       // 按句号（全角和半角）拆分文本
       const sentences = speechText.split(/[。.]/).filter((s) => s.trim());
       const audioElements = [];
-      
+
       // 为每个句子生成音频
       for (let i = 0; i < sentences.length; i++) {
         this.#checkAborted();
         const sentence = sentences[i];
         const mp3Blob = await this.#provider.synthesize(sentence, this.#signal);
         this.#checkAborted();
-        
-        const audio = DomHelper.createAudioEl(URL.createObjectURL(mp3Blob), () =>
-          this.#manager.setPlaying(audioElements[0], contentKey, cardSide),
+
+        const audio = DomHelper.createAudioEl(
+          URL.createObjectURL(mp3Blob),
+          () =>
+            this.#manager.setPlaying(audioElements[0], contentKey, cardSide),
         );
         this.#container.appendChild(audio);
         audioElements.push(audio);
-        
+
         // 为每个音频元素添加播放结束事件，自动播放下一个
         audio.addEventListener("ended", () => {
           const currentIndex = audioElements.indexOf(audio);
@@ -105,12 +107,12 @@ class TtsController {
           }
         });
       }
-      
+
       loading.remove();
-      
+
       // 使用第一个音频元素作为主控制
       const mainAudio = audioElements[0];
-      
+
       const play = () => {
         this.#manager.stopOther(mainAudio);
         // 从头开始播放
