@@ -15,25 +15,15 @@
   // ===== 配置区：在这里添加/删除字体 =====
   const FONTS = [
     {
-      id: "mincho",
-      name: "明朝",
-      family: "HinaMincho-Regular",
-      isDefault: true, // 默认字体，只应用到特定元素
-      targets: [".listenOnlyIndicator", "#front", "#example", "#def"],
+      id: "wenkai",
+      name: "霞鹜文楷",
+      family: "LXGWWenKai-Regular",
     },
     {
-      id: "wenkai",
-      name: "文楷",
-      family: "LXGWWenKai-Regular",
-      isDefault: false, // 非默认字体，应用到所有元素
+      id: "neoxihei",
+      name: "霞鹜新晰黑",
+      family: "LXGWNeoXiHeiScreenFull",
     },
-    // 可以继续添加更多字体
-    // {
-    //   id: "huiwen",
-    //   name: "惠文",
-    //   family: "Huiwen Mincho Font",
-    //   isDefault: false,
-    // },
   ];
   // ===== 配置区结束 =====
 
@@ -77,71 +67,18 @@
   }
 
   /**
-   * 应用默认字体（只针对特定选择器，其他元素移除 inline style）
-   */
-  function applyDefaultFont(font) {
-    // 1. 先清除所有元素的 inline font-family（排除按钮）
-    document.querySelectorAll("*").forEach((el) => {
-      if (!shouldExcludeElement(el)) {
-        el.style.removeProperty("font-family");
-      }
-    });
-
-    // 2. 只给目标元素应用该字体
-    if (font.targets && font.targets.length > 0) {
-      font.targets.forEach((sel) => {
-        document.querySelectorAll(sel).forEach((el) => {
-          if (!shouldExcludeElement(el)) {
-            el.style.setProperty("font-family", font.family, "important");
-            // 同时应用到子元素
-            el.querySelectorAll("*").forEach((child) => {
-              if (!shouldExcludeElement(child)) {
-                child.style.setProperty(
-                  "font-family",
-                  font.family,
-                  "important",
-                );
-              }
-            });
-          }
-        });
-      });
-    }
-  }
-
-  /**
    * 应用字体到新添加的元素
    */
-  function applyFontToElement(element, font) {
-    // 跳过按钮等控件
+  function applyFontToElement(element, fontFamily) {
     if (shouldExcludeElement(element)) {
       return;
     }
-
-    if (font.isDefault) {
-      // 默认字体模式：检查元素是否在目标选择器内
-      const isInTarget = font.targets.some((selector) => {
-        return element.matches(selector) || element.closest(selector);
-      });
-
-      if (isInTarget) {
-        element.style.setProperty("font-family", font.family, "important");
-        // 应用到其子元素
-        element.querySelectorAll("*").forEach((child) => {
-          if (!shouldExcludeElement(child)) {
-            child.style.setProperty("font-family", font.family, "important");
-          }
-        });
+    element.style.setProperty("font-family", fontFamily, "important");
+    element.querySelectorAll("*").forEach((child) => {
+      if (!shouldExcludeElement(child)) {
+        child.style.setProperty("font-family", fontFamily, "important");
       }
-    } else {
-      // 非默认字体：应用到所有元素
-      element.style.setProperty("font-family", font.family, "important");
-      element.querySelectorAll("*").forEach((child) => {
-        if (!shouldExcludeElement(child)) {
-          child.style.setProperty("font-family", font.family, "important");
-        }
-      });
-    }
+    });
   }
 
   /**
@@ -149,13 +86,7 @@
    */
   function applyFont(font) {
     currentFont = font;
-
-    if (font.isDefault) {
-      applyDefaultFont(font);
-    } else {
-      applyFontToAll(font.family);
-    }
-
+    applyFontToAll(font.family);
     console.log(`✅ 字体已切换到: ${font.name}`);
   }
 
@@ -172,11 +103,9 @@
       if (!currentFont) return;
 
       mutations.forEach((mutation) => {
-        // 处理新添加的节点
         mutation.addedNodes.forEach((node) => {
-          // 只处理元素节点
           if (node.nodeType === Node.ELEMENT_NODE) {
-            applyFontToElement(node, currentFont);
+            applyFontToElement(node, currentFont.family);
           }
         });
       });

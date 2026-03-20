@@ -15,6 +15,11 @@
   src: url("./LXGWWenKai-Regular.ttf");
 }
 
+@font-face {
+  font-family: "LXGWNeoXiHeiScreenFull";
+  src: url("./LXGWNeoXiHeiScreenFull.ttf");
+}
+
 .card {
   text-align: left;
   line-height: 1.5 !important;
@@ -99,7 +104,7 @@ body {
   font-size: 20px !important;
   /* font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important; */
   font-family:
-    "Huiwen Mincho Font",
+    "LXGWWenKai-Regular",
     -apple-system,
     BlinkMacSystemFont,
     system-ui,
@@ -195,14 +200,9 @@ blockquote {
 #example,
 #def {
   font-weight: bold;
-  font-family: "HinaMincho-Regular" !important;
-  * {
-    font-family: "HinaMincho-Regular" !important;
-  }
 }
 
 .listenOnlyIndicator {
-  font-family: "HinaMincho-Regular" !important;
   text-align: center;
 	margin-bottom: 10px;
 }
