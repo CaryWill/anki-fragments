@@ -59,7 +59,7 @@ export class TextProcessor {
     const noDash = noSpaces.replace(/[–]/g, "");
     // 删除所有标点符号，但保留：逗号（,、）、句号（。.）、・
     const cleaned = noDash.replace(
-      /[!"#$%&'()*+/:;<=>?@[\]^_`{|}~、！？；：「」『』（）【】《》""''…—]/g,
+      /[!"#$%&'()*+/:;<=>?@[\]^_`{|}~、！？；：「」『』（）【】《》""''…—・]/g,
       "",
     );
     return cleaned;
