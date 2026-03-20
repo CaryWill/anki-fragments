@@ -51,7 +51,7 @@ export class TextProcessor {
    * @param {...string} parts
    */
   static buildSpeechText(...parts) {
-    // return parts.filter(Boolean).join(" \n ").replace(/[–・]/g, "");
+    return parts.filter(Boolean).join(" \n ").replace(/[–・]/g, "");
     const text = parts.filter(Boolean).join(" \n ");
     // 删除所有空格（全角和半角）
     const noSpaces = text.replace(/[\s\u3000]/g, "");
