@@ -46,6 +46,7 @@ body {
   * {
     user-select: none;
   }
+	margin-bottom: 40px;
 }
 
 .soundLink {
@@ -203,7 +204,7 @@ blockquote {
 .listenOnlyIndicator {
   font-family: "HinaMincho-Regular" !important;
   text-align: center;
-  margin-top: 30px;
+	margin-bottom: 10px;
 }
 
 ruby {
