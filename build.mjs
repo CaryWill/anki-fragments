@@ -66,17 +66,44 @@ function copyStaticFiles(srcDir, distDir) {
 }
 
 // ── 复制 dist/ → Anki media ─────────────────────────────────
+// 注意：Anki 不支持 collection.media 中的子目录，所以只复制文件
 
 function copyToAnki(distDir, ankiDir) {
   if (!existsSync(ankiDir)) {
     console.warn(`[build] Warning: Anki media dir not found: ${ankiDir}`);
     return;
   }
-  for (const file of readdirSync(distDir)) {
+  
+  // 要复制到 Anki 的文件列表
+  const filesToCopy = [
+    "default.css", "font-changer.js", "kuromoji.js", "lame.min.js", 
+    "lookup.js", "share.js", "tts.bundle.js"
+  ];
+  
+  // 复制主要文件
+  for (const file of filesToCopy) {
     const src = join(distDir, file);
-    const dest = join(ankiDir, file);
-    copyFileSync(src, dest);
-    console.log(`[build] anki  dist/${file} → ${dest}`);
+    if (existsSync(src)) {
+      const dest = join(ankiDir, file);
+      copyFileSync(src, dest);
+      console.log(`[build] anki  dist/${file} → ${dest}`);
+    }
+  }
+  
+  // 复制 kuromoji 词典文件（扁平化）
+  const dictFiles = [
+    "base.dat.gz", "check.dat.gz", "cc.dat.gz",
+    "tid.dat.gz", "tid_pos.dat.gz", "tid_map.dat.gz",
+    "unk.dat.gz", "unk_pos.dat.gz", "unk_map.dat.gz",
+    "unk_char.dat.gz", "unk_compat.dat.gz", "unk_invoke.dat.gz"
+  ];
+  for (const file of dictFiles) {
+    const src = join(distDir, file);
+    if (existsSync(src)) {
+      const dest = join(ankiDir, file);
+      copyFileSync(src, dest);
+      console.log(`[build] anki  dist/${file} → ${dest}`);
+    }
   }
 }
 
@@ -129,13 +156,37 @@ console.log(
   `[build] bundle src/tts/index.js → dist/tts.bundle.js (${isDev ? "dev" : "prod"})`,
 );
 
-// 2. Copy static files at src/ root (font-changer.5.js, lookup.1.js, etc.)
+// 2. 复制 kuromoji 词典文件到 dist（扁平化，保持原始文件名）
+const kuromojiDictSrc = "node_modules/kuromoji/dict";
+if (existsSync(kuromojiDictSrc)) {
+  for (const file of readdirSync(kuromojiDictSrc)) {
+    const src = join(kuromojiDictSrc, file);
+    // 扁平化：保持原始文件名如 base.dat.gz
+    const dest = join(distDir, file);
+    copyFileSync(src, dest);
+    console.log(`[build] kuromoji dict ${src} → ${dest}`);
+  }
+} else {
+  console.warn(`[build] Warning: kuromoji dict not found at ${kuromojiDictSrc}`);
+}
+
+// 3. 复制 kuromoji.js 到 dist
+const kuromojiJsSrc = "node_modules/kuromoji/build/kuromoji.js";
+const kuromojiJsDest = join(distDir, "kuromoji.js");
+if (existsSync(kuromojiJsSrc)) {
+  copyFileSync(kuromojiJsSrc, kuromojiJsDest);
+  console.log(`[build] kuromoji.js ${kuromojiJsSrc} → ${kuromojiJsDest}`);
+} else {
+  console.warn(`[build] Warning: kuromoji.js not found at ${kuromojiJsSrc}`);
+}
+
+// 4. Copy static files at src/ root (font-changer.5.js, lookup.1.js, etc.)
 copyStaticFiles("src", distDir);
 
-// 3. Deploy everything in dist/ to Anki
+// 5. Deploy everything in dist/ to Anki
 copyToAnki(distDir, ankiDir);
 
-// 4. 将 src/assets/ 下所有文件（递归 flat）直接复制到 Anki media
+// 6. 将 src/assets/ 下所有文件（递归 flat）直接复制到 Anki media
 if (existsSync(ankiDir)) {
   copyFilesFlat("src/assets", ankiDir);
 } else {

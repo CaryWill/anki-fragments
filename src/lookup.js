@@ -1,10 +1,102 @@
 /**
  * 查词按钮功能模块
  * 自动初始化，无需手动调用
+ * 支持日语辞书型（lemma）转换
  */
 
 (function () {
   "use strict";
+
+  // kuromoji 加载状态
+  let tokenizer = null;
+  let tokenizerReady = false;
+
+  /**
+   * 初始化 kuromoji 分词器
+   * 从 Anki media 目录加载词典文件（扁平化路径）
+   */
+  function initTokenizer() {
+    return new Promise((resolve, reject) => {
+      if (tokenizerReady) {
+        resolve(tokenizer);
+        return;
+      }
+
+      // Anki 环境下使用扁平化路径加载词典
+      // 词典文件直接放在根目录，使用空路径
+      const dicPath = "";
+      
+      // 动态加载 kuromoji
+      if (typeof kuromoji === "undefined") {
+        // 如果 kuromoji 未加载，创建一个简单的加载脚本
+        const script = document.createElement("script");
+        script.src = "kuromoji.js";
+        script.onload = () => {
+          buildTokenizer(dicPath, resolve, reject);
+        };
+        script.onerror = () => {
+          console.warn("[lookup] kuromoji.js 加载失败，将使用原始文本查词");
+          reject(new Error("kuromoji load failed"));
+        };
+        document.head.appendChild(script);
+      } else {
+        buildTokenizer(dicPath, resolve, reject);
+      }
+    });
+  }
+
+  /**
+   * 构建分词器
+   */
+  function buildTokenizer(dicPath, resolve, reject) {
+    kuromoji.builder({ dicPath: dicPath }).build((err, t) => {
+      if (err) {
+        console.warn("[lookup] 词典加载失败:", err);
+        reject(err);
+        return;
+      }
+      tokenizer = t;
+      tokenizerReady = true;
+      console.log("[lookup] kuromoji 词典加载成功");
+      resolve(tokenizer);
+    });
+  }
+
+  /**
+   * 将日语文本转换为辞书型（lemma）
+   * 提取第一个动词/形容词的基本形，或返回原始文本
+   * @param {string} text - 输入文本
+   * @returns {string} 辞书型文本
+   */
+  function toDictionaryForm(text) {
+    if (!tokenizerReady || !tokenizer) {
+      return text;
+    }
+
+    try {
+      const tokens = tokenizer.tokenize(text);
+      
+      // 查找第一个有基本形的动词或形容词 token
+      for (const token of tokens) {
+        // 只处理动词、形容词、形容动词
+        const pos = token.pos || "";
+        if (pos === "動詞" || pos === "形容詞" || pos === "形容動詞") {
+          // 如果有基本形（辞书形），使用基本形
+          if (token.basic_form && token.basic_form !== "*") {
+            console.log("[lookup] 辞书型转换:", text, "→", token.basic_form);
+            return token.basic_form;
+          }
+        }
+      }
+      
+      // 如果没有找到动词/形容词，返回原始文本
+      console.log("[lookup] 无需转换:", text);
+      return text;
+    } catch (err) {
+      console.warn("[lookup] 辞书型转换失败:", err);
+      return text;
+    }
+  }
 
   /**
    * 通过 URL Scheme 打开外部 App
@@ -47,7 +139,7 @@
     });
 
     // 查词按钮点击事件
-    lookupBtn.addEventListener("click", (e) => {
+    lookupBtn.addEventListener("click", async (e) => {
       e.preventDefault();
       e.stopPropagation();
 
@@ -66,7 +158,18 @@
         return;
       }
 
-      const encodedText = encodeURIComponent(textToLookup);
+      // 尝试初始化分词器并转换为辞书型
+      try {
+        await initTokenizer();
+      } catch (err) {
+        // 分词器加载失败，继续使用原始文本
+        console.log("[lookup] 使用原始文本查询");
+      }
+
+      // 转换为辞书型
+      const dictionaryForm = toDictionaryForm(textToLookup);
+      
+      const encodedText = encodeURIComponent(dictionaryForm);
       const scheme = `mkdictionaries:///?text=${encodedText}`;
 
       console.log("跳转 URL:", scheme);

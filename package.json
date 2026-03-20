@@ -21,5 +21,8 @@
     "build": "node build.mjs",
     "build:dev": "node build.mjs --dev",
     "watch": "node --watch build.mjs --dev"
+  },
+  "dependencies": {
+    "kuromoji": "^0.1.2"
   }
 }
