@@ -22,11 +22,11 @@ function createProvider() {
   return new VoiceVoxProvider();
 
   // ── 使用 Azure ──
-  // return new AzureProvider({
-  //   subscriptionKey: ENV.azure.subscriptionKey,
-  //   region: ENV.azure.region,
-  //   voice: ENV.azure.voice,
-  // });
+  return new AzureProvider({
+    subscriptionKey: ENV.azure.subscriptionKey,
+    region: ENV.azure.region,
+    voice: ENV.azure.voice,
+  });
 
   // ── 使用 ElevenLabs ──
   // return new ElevenLabsProvider({
@@ -79,26 +79,54 @@ class TtsController {
         }
       }
 
-      const mp3Blob = await this.#provider.synthesize(speechText, this.#signal);
-      this.#checkAborted();
+      // 按句号（全角和半角）拆分文本
+      const sentences = speechText.split(/[。.]/).filter((s) => s.trim());
+      const audioElements = [];
+      
+      // 为每个句子生成音频
+      for (let i = 0; i < sentences.length; i++) {
+        this.#checkAborted();
+        const sentence = sentences[i];
+        const mp3Blob = await this.#provider.synthesize(sentence, this.#signal);
+        this.#checkAborted();
+        
+        const audio = DomHelper.createAudioEl(URL.createObjectURL(mp3Blob), () =>
+          this.#manager.setPlaying(audioElements[0], contentKey, cardSide),
+        );
+        this.#container.appendChild(audio);
+        audioElements.push(audio);
+        
+        // 为每个音频元素添加播放结束事件，自动播放下一个
+        audio.addEventListener("ended", () => {
+          const currentIndex = audioElements.indexOf(audio);
+          if (currentIndex < audioElements.length - 1) {
+            const nextAudio = audioElements[currentIndex + 1];
+            nextAudio.play().catch(() => {});
+          }
+        });
+      }
+      
       loading.remove();
-
-      const audio = DomHelper.createAudioEl(URL.createObjectURL(mp3Blob), () =>
-        this.#manager.setPlaying(audio, contentKey, cardSide),
-      );
-      this.#container.appendChild(audio);
-
+      
+      // 使用第一个音频元素作为主控制
+      const mainAudio = audioElements[0];
+      
       const play = () => {
-        this.#manager.stopOther(audio);
-        audio.currentTime = 0;
-        audio.play().catch(() => {});
-        this.#manager.setPlaying(audio, contentKey, cardSide);
+        this.#manager.stopOther(mainAudio);
+        // 从头开始播放
+        audioElements.forEach((audio) => {
+          audio.currentTime = 0;
+        });
+        mainAudio.play().catch(() => {});
+        this.#manager.setPlaying(mainAudio, contentKey, cardSide);
       };
 
       const pause = () => {
-        audio.pause();
-        audio.currentTime = 0;
-        this.#manager.clearAudio(audio);
+        audioElements.forEach((audio) => {
+          audio.pause();
+          audio.currentTime = 0;
+        });
+        this.#manager.clearAudio(mainAudio);
       };
 
       this.#container.prepend(DomHelper.createPlayButton(play, pause));

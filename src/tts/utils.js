@@ -44,11 +44,22 @@ export class TextProcessor {
   }
 
   /**
-   * 拼接语音朗读文本，去除发音符号
+   * 拼接语音朗读文本，清理标点符号
+   *   1. 删除所有空格（全角和半角）
+   *   2. 删除所有标点符号，但保留：逗号（,、）、句号（。.）、・
+   *   3. 删除发音符号（–）
    * @param {...string} parts
    */
   static buildSpeechText(...parts) {
     return parts.filter(Boolean).join(" \n ").replace(/[–・]/g, "");
+    const text = parts.filter(Boolean).join(" \n ");
+    // 删除所有空格（全角和半角）
+    const noSpaces = text.replace(/[\s\u3000]/g, "");
+    // 删除发音符号（–）
+    const noDash = noSpaces.replace(/[–]/g, "");
+    // 删除所有标点符号，但保留：逗号（,、）、句号（。.）、・
+    const cleaned = noDash.replace(/[!"#$%&'()*+/:;<=>?@[\]^_`{|}~、！？；：「」『』（）【】《》""''…—]/g, "");
+    return cleaned;
   }
 }
 
