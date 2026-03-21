@@ -79,34 +79,33 @@ class TtsController {
         }
       }
 
-      // 按句号（全角和半角）拆分文本
-      const sentences = speechText.split(/[。.]/).filter((s) => s.trim());
+      // 按句号（全角和半角）和顿号（全角和半角）拆分文本
+      // 支持中文、日文、英文的标点符号
+      const sentences = speechText.split(/[。.、,]/).filter((s) => s.trim());
       const audioElements = [];
+      const audioBlobs = new Array(sentences.length).fill(null);
 
-      // 为每个句子生成音频
-      for (let i = 0; i < sentences.length; i++) {
-        this.#checkAborted();
-        const sentence = sentences[i];
-        const mp3Blob = await this.#provider.synthesize(sentence, this.#signal);
-        this.#checkAborted();
+      // 预加载第一个句子
+      audioBlobs[0] = await this.#provider.synthesize(sentences[0], this.#signal);
+      this.#checkAborted();
 
-        const audio = DomHelper.createAudioEl(
-          URL.createObjectURL(mp3Blob),
-          () =>
-            this.#manager.setPlaying(audioElements[0], contentKey, cardSide),
-        );
-        this.#container.appendChild(audio);
-        audioElements.push(audio);
+      // 创建第一个音频元素
+      const firstAudio = DomHelper.createAudioEl(
+        URL.createObjectURL(audioBlobs[0]),
+        () =>
+          this.#manager.setPlaying(audioElements[0], contentKey, cardSide),
+      );
+      this.#container.appendChild(firstAudio);
+      audioElements.push(firstAudio);
 
-        // 为每个音频元素添加播放结束事件，自动播放下一个
-        audio.addEventListener("ended", () => {
-          const currentIndex = audioElements.indexOf(audio);
-          if (currentIndex < audioElements.length - 1) {
-            const nextAudio = audioElements[currentIndex + 1];
-            nextAudio.play().catch(() => {});
-          }
-        });
-      }
+      // 为第一个音频元素添加播放结束事件，自动播放下一个
+      firstAudio.addEventListener("ended", () => {
+        const currentIndex = audioElements.indexOf(firstAudio);
+        if (currentIndex < audioElements.length - 1) {
+          const nextAudio = audioElements[currentIndex + 1];
+          nextAudio.play().catch(() => {});
+        }
+      });
 
       loading.remove();
 
@@ -132,6 +131,47 @@ class TtsController {
       };
 
       this.#container.prepend(DomHelper.createPlayButton(play, pause));
+
+      // 预加载剩余的句子（在后台进行）
+      const preloadNext = async (index) => {
+        if (index >= sentences.length) return;
+        
+        try {
+          this.#checkAborted();
+          const blob = await this.#provider.synthesize(sentences[index], this.#signal);
+          this.#checkAborted();
+          
+          audioBlobs[index] = blob;
+          
+          // 创建音频元素
+          const audio = DomHelper.createAudioEl(
+            URL.createObjectURL(blob),
+            () =>
+              this.#manager.setPlaying(audioElements[0], contentKey, cardSide),
+          );
+          this.#container.appendChild(audio);
+          audioElements.push(audio);
+
+          // 为每个音频元素添加播放结束事件，自动播放下一个
+          audio.addEventListener("ended", () => {
+            const currentIndex = audioElements.indexOf(audio);
+            if (currentIndex < audioElements.length - 1) {
+              const nextAudio = audioElements[currentIndex + 1];
+              nextAudio.play().catch(() => {});
+            }
+          });
+
+          // 继续预加载下一个
+          preloadNext(index + 1);
+        } catch (err) {
+          if (err.name !== "AbortError") {
+            console.error(`预加载第 ${index + 1} 句失败:`, err);
+          }
+        }
+      };
+
+      // 开始预加载剩余句子
+      preloadNext(1);
 
       if (shouldAutoPlay) {
         setTimeout(() => {
