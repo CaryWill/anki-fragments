@@ -50,12 +50,66 @@ function createSwitchButton() {
 }
 
 // 自动初始化：在 button-container 中添加切换按钮
-(function init() {
-  const container = document.getElementById("button-container");
-  if (!container) return;
+(function autoInit() {
+  let observer = null;
   
-  const btn = createSwitchButton();
-  container.appendChild(btn);
+  const init = () => {
+    const container = document.getElementById("button-container");
+    if (!container) {
+      console.warn("[provider-switcher] 未找到 button-container 元素");
+      return;
+    }
+    
+    // 避免重复添加
+    if (container.querySelector('[data-provider-switcher]')) {
+      return;
+    }
+    
+    const btn = createSwitchButton();
+    btn.setAttribute("data-provider-switcher", "true");
+    container.appendChild(btn);
+    console.log("[provider-switcher] 切换按钮已初始化");
+  };
+
+  const startObserver = () => {
+    if (observer) {
+      observer.disconnect();
+    }
+    
+    observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === Node.ELEMENT_NODE) {
+            // 检查是否是 button-container 被添加
+            if (node.id === "button-container" || node.querySelector?.("#button-container")) {
+              init();
+            }
+          }
+        });
+      });
+    });
+    
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
+    
+    console.log("[provider-switcher] MutationObserver 已启动");
+  };
+
+  // 等待 DOM 加载完成
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => {
+      init();
+      startObserver();
+    });
+  } else {
+    // 使用 setTimeout 确保 DOM 完全准备好（适用于 Anki 动态加载场景）
+    setTimeout(() => {
+      init();
+      startObserver();
+    }, 0);
+  }
 })();
 
 // 导出函数供其他模块使用（如果需要）
