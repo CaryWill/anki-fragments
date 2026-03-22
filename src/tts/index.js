@@ -15,6 +15,17 @@ import {
 } from "./tts-provider.js";
 import { ENV } from "./env.js";
 
+// 排序按钮函数
+function sortButtons(container) {
+  const buttons = Array.from(container.children);
+  buttons.sort((a, b) => {
+    const orderA = parseInt(a.getAttribute("data-order") || "99", 10);
+    const orderB = parseInt(b.getAttribute("data-order") || "99", 10);
+    return orderA - orderB;
+  });
+  buttons.forEach((btn) => container.appendChild(btn));
+}
+
 // ============ Provider 工厂（在此切换 TTS 服务） ============
 
 function createProvider(providerType = null) {
@@ -176,7 +187,10 @@ class TtsController {
         this.#manager.clearAudio(mainAudio);
       };
 
-      this.#container.prepend(DomHelper.createPlayButton(play, pause));
+      const playBtn = DomHelper.createPlayButton(play, pause);
+      playBtn.setAttribute("data-order", "1");
+      this.#container.appendChild(playBtn);
+      sortButtons(this.#container);
 
       // 预加载剩余的句子（在后台进行）
       const preloadNext = async (index) => {

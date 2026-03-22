@@ -49,6 +49,17 @@ function createSwitchButton() {
   return btn;
 }
 
+// 排序按钮函数
+function sortButtons(container) {
+  const buttons = Array.from(container.children);
+  buttons.sort((a, b) => {
+    const orderA = parseInt(a.getAttribute("data-order") || "99", 10);
+    const orderB = parseInt(b.getAttribute("data-order") || "99", 10);
+    return orderA - orderB;
+  });
+  buttons.forEach((btn) => container.appendChild(btn));
+}
+
 // 自动初始化：在 button-container 中添加切换按钮
 (function autoInit() {
   let observer = null;
@@ -67,7 +78,9 @@ function createSwitchButton() {
     
     const btn = createSwitchButton();
     btn.setAttribute("data-provider-switcher", "true");
+    btn.setAttribute("data-order", "2");
     container.appendChild(btn);
+    sortButtons(container);
     console.log("[provider-switcher] 切换按钮已初始化");
   };
 

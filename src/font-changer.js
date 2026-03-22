@@ -12,6 +12,17 @@
   const STORAGE_KEY = "anki_font_pref_v1";
   const BUTTON_CLASS = "font-switcher-button"; // 标记按钮，避免被字体样式影响
 
+  // 排序按钮函数
+  function sortButtons(container) {
+    const buttons = Array.from(container.children);
+    buttons.sort((a, b) => {
+      const orderA = parseInt(a.getAttribute("data-order") || "99", 10);
+      const orderB = parseInt(b.getAttribute("data-order") || "99", 10);
+      return orderA - orderB;
+    });
+    buttons.forEach((btn) => container.appendChild(btn));
+  }
+
   // ===== 配置区：在这里添加/删除字体 =====
   const FONTS = [
     {
@@ -176,7 +187,9 @@
     btn.style.pointerEvents = "auto";
     btn.style.cursor = "pointer";
 
-    container.insertBefore(btn, container.firstChild);
+    btn.setAttribute("data-order", "3");
+    container.appendChild(btn);
+    sortButtons(container);
 
     console.log("✨ 按钮已创建并添加到页面");
   }
@@ -228,7 +241,9 @@
 
     wrapper.appendChild(label);
     wrapper.appendChild(select);
-    container.insertBefore(wrapper, container.firstChild);
+    wrapper.setAttribute("data-order", "3");
+    container.appendChild(wrapper);
+    sortButtons(container);
 
     console.log("✨ 下拉框已创建并添加到页面");
   }

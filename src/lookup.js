@@ -7,6 +7,17 @@
 (function () {
   "use strict";
 
+  // 排序按钮函数
+  function sortButtons(container) {
+    const buttons = Array.from(container.children);
+    buttons.sort((a, b) => {
+      const orderA = parseInt(a.getAttribute("data-order") || "99", 10);
+      const orderB = parseInt(b.getAttribute("data-order") || "99", 10);
+      return orderA - orderB;
+    });
+    buttons.forEach((btn) => container.appendChild(btn));
+  }
+
   // kuromoji 加载状态
   let tokenizer = null;
   let tokenizerReady = false;
@@ -178,7 +189,9 @@
       savedSelection = null;
     });
 
+    lookupBtn.setAttribute("data-order", "5");
     container.appendChild(lookupBtn);
+    sortButtons(container);
     return lookupBtn;
   }
 
