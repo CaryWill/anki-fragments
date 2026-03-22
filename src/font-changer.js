@@ -149,7 +149,7 @@
 
     const render = () => {
       const font = getFontById(currentFontId);
-      btn.textContent = `字体：${font.name}`;
+      btn.textContent = `${font.name}`;
     };
 
     render();
@@ -192,7 +192,7 @@
     wrapper.setAttribute("data-font-switcher", "true");
 
     const label = document.createElement("label");
-    label.textContent = "字体：";
+    label.textContent = "";
     label.style.marginRight = "4px";
     label.setAttribute("data-font-switcher", "true");
 

@@ -17,22 +17,23 @@ import { ENV } from "./env.js";
 
 // ============ Provider 工厂（在此切换 TTS 服务） ============
 
-function createProvider() {
-  // ── 使用 VoiceVox（无需配置） ──
-  return new VoiceVoxProvider();
-
-  // ── 使用 Azure ──
-  return new AzureProvider({
-    subscriptionKey: ENV.azure.subscriptionKey,
-    region: ENV.azure.region,
-    voice: ENV.azure.voice,
-  });
-
-  // ── 使用 ElevenLabs ──
-  // return new ElevenLabsProvider({
-  //   apiKey  : ENV.elevenLabs.apiKey,
-  //   voiceId : ENV.elevenLabs.voiceId,
-  // });
+function createProvider(providerType = null) {
+  // 如果没有指定 providerType，从 localStorage 读取
+  if (!providerType) {
+    const stored = localStorage.getItem("tts_provider");
+    providerType = (stored === "azure" || stored === "voicevox") ? stored : "voicevox";
+  }
+  
+  if (providerType === "azure") {
+    return new AzureProvider({
+      subscriptionKey: ENV.azure.subscriptionKey,
+      region: ENV.azure.region,
+      voice: ENV.azure.voice,
+    });
+  } else {
+    // 默认使用 VoiceVox
+    return new VoiceVoxProvider();
+  }
 }
 
 // ============ TTS 控制器 ============
@@ -305,7 +306,7 @@ class TtsController {
     container,
     combinedKey,
     signal: abortController.signal,
-    provider: createProvider(),
+    provider: createProvider(), // 从 localStorage 读取
   });
 
   await ctrl.run({ speechText, contentKey, cardSide, shouldAutoPlay });

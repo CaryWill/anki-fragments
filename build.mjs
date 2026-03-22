@@ -77,7 +77,7 @@ function copyToAnki(distDir, ankiDir) {
   // 要复制到 Anki 的文件列表
   const filesToCopy = [
     "default.css", "font-changer.js", "kuromoji.js", "lame.min.js", 
-    "lookup.js", "share.js", "tts.bundle.js"
+    "lookup.js", "provider-switcher.js", "share.js", "tts.bundle.js"
   ];
   
   // 复制主要文件
