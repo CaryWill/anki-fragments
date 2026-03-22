@@ -19,7 +19,7 @@ import { ENV } from "./env.js";
 
 function createProvider() {
   // ── 使用 VoiceVox（无需配置） ──
-  // return new VoiceVoxProvider();
+  return new VoiceVoxProvider();
 
   // ── 使用 Azure ──
   return new AzureProvider({
@@ -81,11 +81,40 @@ class TtsController {
 
       // 按句号（全角和半角）和顿号（全角和半角）拆分文本
       // 支持中文、日文、英文的标点符号
-      const sentences = speechText.split(/[。.、,]/).filter((s) => s.trim());
+      const rawSentences = speechText.split(/([。.、,])/).filter((s) => s.trim());
+      
+      // 合并短句子（小于25字）与下一句，保留标点符号
+      const sentences = [];
+      let currentSentence = "";
+      
+      for (let i = 0; i < rawSentences.length; i++) {
+        const part = rawSentences[i];
+        const isPunctuation = /[。.、,]/.test(part);
+        
+        if (isPunctuation) {
+          currentSentence += part;
+          // 检查当前句子长度，如果小于25字，继续合并下一句
+          if (currentSentence.length < 25) {
+            continue;
+          } else {
+            sentences.push(currentSentence);
+            currentSentence = "";
+          }
+        } else {
+          currentSentence += part;
+        }
+      }
+      
+      // 添加剩余的句子
+      if (currentSentence.trim()) {
+        sentences.push(currentSentence);
+      }
+      
       const audioElements = [];
       const audioBlobs = new Array(sentences.length).fill(null);
 
       // 预加载第一个句子
+      // alert(`正在请求 TTS 接口：第 1 句\n句子内容：${sentences[0]}`);
       audioBlobs[0] = await this.#provider.synthesize(sentences[0], this.#signal);
       this.#checkAborted();
 
@@ -103,7 +132,23 @@ class TtsController {
         const currentIndex = audioElements.indexOf(firstAudio);
         if (currentIndex < audioElements.length - 1) {
           const nextAudio = audioElements[currentIndex + 1];
+          // 减少停顿时间，立即播放下一个
           nextAudio.play().catch(() => {});
+        }
+      });
+      
+      // 添加 timeupdate 事件作为备用方案（解决某些音频文件 ended 事件不触发的问题）
+      firstAudio.addEventListener("timeupdate", () => {
+        const currentIndex = audioElements.indexOf(firstAudio);
+        if (currentIndex < audioElements.length - 1) {
+          const nextAudio = audioElements[currentIndex + 1];
+          // 如果当前音频播放到接近结束（剩余时间小于 0.1 秒），自动播放下一个
+          if (firstAudio.duration > 0 && firstAudio.currentTime >= firstAudio.duration - 0.1) {
+            // 确保下一个音频还没开始播放
+            if (nextAudio.paused) {
+              nextAudio.play().catch(() => {});
+            }
+          }
         }
       });
 
@@ -138,6 +183,7 @@ class TtsController {
         
         try {
           this.#checkAborted();
+          // alert(`正在请求 TTS 接口：第 ${index + 1} 句\n句子内容：${sentences[index]}`);
           const blob = await this.#provider.synthesize(sentences[index], this.#signal);
           this.#checkAborted();
           
@@ -157,7 +203,23 @@ class TtsController {
             const currentIndex = audioElements.indexOf(audio);
             if (currentIndex < audioElements.length - 1) {
               const nextAudio = audioElements[currentIndex + 1];
+              // 减少停顿时间，立即播放下一个
               nextAudio.play().catch(() => {});
+            }
+          });
+          
+          // 添加 timeupdate 事件作为备用方案（解决某些音频文件 ended 事件不触发的问题）
+          audio.addEventListener("timeupdate", () => {
+            const currentIndex = audioElements.indexOf(audio);
+            if (currentIndex < audioElements.length - 1) {
+              const nextAudio = audioElements[currentIndex + 1];
+              // 如果当前音频播放到接近结束（剩余时间小于 0.1 秒），自动播放下一个
+              if (audio.duration > 0 && audio.currentTime >= audio.duration - 0.1) {
+                // 确保下一个音频还没开始播放
+                if (nextAudio.paused) {
+                  nextAudio.play().catch(() => {});
+                }
+              }
             }
           });
 
