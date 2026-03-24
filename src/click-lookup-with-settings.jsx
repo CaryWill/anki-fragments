@@ -30,10 +30,12 @@ const FONTS = [
   { id: "neoxihei", name: "霞鹜新晰黑", family: "LXGWNeoXiHeiScreenFull" },
 ];
 
-// 默认配置
+// 默认配置 - 默认不解析任何 JLPT 等级
 const defaultConfig = {
   enabled: true,
   onlyKanji: false,
+  showJlptTag: true,  // 是否显示 JLPT 标签
+  jlptLevels: [],  // 默认不解析任何等级，用户需要在设置中手动勾选
   ttsProvider: "voicevox",
   font: "wenkai",
 };
@@ -48,13 +50,18 @@ function loadConfig() {
     const font = localStorage.getItem(FONT_KEY) || defaultConfig.font;
     
     if (saved) {
-      return { 
+      const parsed = JSON.parse(saved);
+      console.log("[click-lookup] 从 localStorage 加载配置:", parsed);
+      const config = { 
         ...defaultConfig, 
-        ...JSON.parse(saved),
+        ...parsed,
         ttsProvider,
         font,
       };
+      console.log("[click-lookup] 合并后配置:", config);
+      return config;
     }
+    console.log("[click-lookup] 使用默认配置:", defaultConfig);
     return { ...defaultConfig, ttsProvider, font };
   } catch (e) {
     console.warn("[click-lookup] 配置加载失败:", e);
@@ -71,7 +78,10 @@ function saveConfig(config) {
     const clickLookupConfig = {
       enabled: config.enabled,
       onlyKanji: config.onlyKanji,
+      showJlptTag: config.showJlptTag,
+      jlptLevels: config.jlptLevels,
     };
+    console.log("[click-lookup] 保存配置到 localStorage:", clickLookupConfig);
     localStorage.setItem(CONFIG_KEY, JSON.stringify(clickLookupConfig));
     
     // 保存 TTS Provider
@@ -91,68 +101,14 @@ function saveConfig(config) {
  * 设置按钮和弹窗组件
  */
 function ClickLookupSettingsComponent() {
-  const [visible, setVisible] = useState(false);
   const [config, setConfig] = useState(defaultConfig);
+  const [isOpen, setIsOpen] = useState(false);
 
   // 加载配置
   useEffect(() => {
-    setConfig(loadConfig());
+    const savedConfig = loadConfig();
+    setConfig(savedConfig);
   }, []);
-
-  // 打开弹窗
-  const handleOpen = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setVisible(true);
-  };
-
-  // 关闭弹窗
-  const handleClose = () => {
-    setVisible(false);
-  };
-
-  // 保存配置
-  const handleSave = () => {
-    if (saveConfig(config)) {
-      Toast.show({
-        icon: "success",
-        content: "设置已保存",
-      });
-      setVisible(false);
-      
-      // 触发重新处理页面
-      if (window.AnkiClickLookup) {
-        window.AnkiClickLookup.cleanup();
-        window.AnkiClickLookup.enable();
-      }
-      
-      // 触发 TTS Provider 变更事件
-      window.dispatchEvent(new CustomEvent("ttsProviderChanged", { 
-        detail: { provider: config.ttsProvider } 
-      }));
-      
-      // 应用字体
-      const selectedFont = FONTS.find(f => f.id === config.font);
-      if (selectedFont) {
-        applyFont(selectedFont.family);
-      }
-    } else {
-      Toast.show({
-        icon: "fail",
-        content: "保存失败",
-      });
-    }
-  };
-
-  // 应用字体到所有元素
-  const applyFont = (fontFamily) => {
-    document.querySelectorAll("*").forEach((el) => {
-      // 只排除设置弹窗，按钮也要应用字体
-      if (!el.closest(".adm-modal")) {
-        el.style.setProperty("font-family", fontFamily, "important");
-      }
-    });
-  };
 
   // 切换启用状态
   const toggleEnabled = (checked) => {
@@ -164,15 +120,72 @@ function ClickLookupSettingsComponent() {
     setConfig((prev) => ({ ...prev, onlyKanji: checked }));
   };
 
+  // 切换显示 JLPT 标签
+  const toggleShowJlptTag = (checked) => {
+    setConfig((prev) => ({ ...prev, showJlptTag: checked }));
+  };
+
+  // 切换 JLPT 等级
+  const toggleJlptLevel = (level, checked) => {
+    setConfig((prev) => {
+      const levels = prev.jlptLevels || [];
+      if (checked) {
+        // 添加等级，并按 N1, N2, N3, N4, N5 排序
+        const newLevels = [...levels, level].sort((a, b) => {
+          return parseInt(a.replace('N', '')) - parseInt(b.replace('N', ''));
+        });
+        return { ...prev, jlptLevels: newLevels };
+      } else {
+        // 移除等级
+        return { ...prev, jlptLevels: levels.filter(l => l !== level) };
+      }
+    });
+  };
+
   // 切换 TTS Provider
-  const changeTtsProvider = (value) => {
-    setConfig((prev) => ({ ...prev, ttsProvider: value }));
+  const changeTtsProvider = (provider) => {
+    setConfig((prev) => ({ ...prev, ttsProvider: provider }));
   };
 
   // 切换字体
-  const changeFont = (value) => {
-    setConfig((prev) => ({ ...prev, font: value }));
+  const changeFont = (font) => {
+    setConfig((prev) => ({ ...prev, font: font }));
   };
+
+  // 打开弹窗
+  const handleOpen = () => {
+    setIsOpen(true);
+  };
+
+  // 关闭弹窗
+  const handleClose = () => {
+    setIsOpen(false);
+  };
+
+  // 保存配置
+  const handleSave = () => {
+    const success = saveConfig(config);
+    if (success) {
+      // 更新全局配置
+      window.AnkiClickLookup?.updateConfig?.(config);
+      Toast.show({
+        icon: "success",
+        content: "配置已保存",
+      });
+      setIsOpen(false);
+      // 刷新页面以应用新配置
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    } else {
+      Toast.show({
+        icon: "fail",
+        content: "配置保存失败",
+      });
+    }
+  };
+
+  const visible = isOpen;
 
   return (
     <>
@@ -228,6 +241,61 @@ function ClickLookupSettingsComponent() {
                     只处理含汉字的词汇
                   </div>
                 </List.Item>
+                <List.Item
+                  style={{ 
+                    paddingLeft: "12px",
+                    paddingRight: "12px",
+                  }}
+                  extra={
+                    <Switch
+                      checked={config.showJlptTag}
+                      onChange={toggleShowJlptTag}
+                    />
+                  }
+                >
+                  <div style={{ fontSize: "15px", whiteSpace: "nowrap" }}>
+                    显示 JLPT 等级标签
+                  </div>
+                </List.Item>
+                {config.showJlptTag && (
+                  <List.Item
+                    style={{ 
+                      paddingLeft: "12px",
+                      paddingRight: "12px",
+                    }}
+                  >
+                    <div style={{ fontSize: "15px", marginBottom: "8px" }}>
+                      显示等级
+                    </div>
+                    <div style={{ 
+                      display: "flex", 
+                      gap: "12px", 
+                      flexWrap: "wrap",
+                      marginTop: "8px"
+                    }}>
+                      {['N1', 'N2', 'N3', 'N4', 'N5'].map(level => (
+                        <label 
+                          key={level}
+                          style={{ 
+                            display: "flex", 
+                            alignItems: "center",
+                            gap: "4px",
+                            cursor: "pointer",
+                            fontSize: "14px"
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={config.jlptLevels?.includes(level) || false}
+                            onChange={(e) => toggleJlptLevel(level, e.target.checked)}
+                            style={{ cursor: "pointer" }}
+                          />
+                          <span>{level}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </List.Item>
+                )}
                 <List.Item
                   style={{ 
                     paddingLeft: "12px",
@@ -461,8 +529,8 @@ function addSettingsStyles() {
   let jlptChecker = null;
   let jlptReady = false;
 
-  // 当前配置
-  let currentConfig = { ...defaultConfig };
+  // 当前配置 - 从 localStorage 加载
+  let currentConfig = loadConfig();
 
   /**
    * 初始化 JLPT Checker
@@ -654,6 +722,17 @@ function addSettingsStyles() {
   }
 
   /**
+   * 判断是否为纯数字、标点符号或特殊字符
+   * @param {string} text - 文本
+   * @returns {boolean}
+   */
+  function isPunctuationOrNumber(text) {
+    // 匹配数字、标点符号、空白字符、特殊符号等
+    // 包括：数字、英文标点、日文标点、中文标点、圆圈数字、括号等
+    return /^[\d\s\p{P}\p{S}○◎●◇◆□■△▲▽▼※〒々〆〇〈〉《》「」『』【】〔〕〖〗〘〙〚〛〝〞〟]+$/u.test(text);
+  }
+
+  /**
    * 判断词性是否需要添加点击查词
    * @param {string} pos - 词性
    * @param {string} surface - 表面形（用于过滤单字符）
@@ -669,9 +748,15 @@ function addSettingsStyles() {
     if (!surface) {
       return false;
     }
+    
     // 使用实际字符数判断（正确处理 Unicode）
     const charCount = Array.from(surface).length;
     if (charCount <= 1) {
+      return false;
+    }
+
+    // 过滤纯数字、标点符号、特殊字符
+    if (isPunctuationOrNumber(surface)) {
       return false;
     }
 
@@ -803,19 +888,19 @@ function addSettingsStyles() {
         // 创建可点击的词元素
         if (isLookupablePOS(pos, surface)) {
           const span = document.createElement("span");
-          span.textContent = surface;
           span.className = "click-lookup-word";
           span.setAttribute("data-pos", pos);
           span.setAttribute("data-lemma", token.basic_form || surface);
           
           // 检查 JLPT 级别并添加标记
+          let jlptLevel = null;
           if (jlptReady && jlptChecker) {
             try {
-              const level = jlptChecker.getLevel(surface);
-              if (level) {
-                span.setAttribute("data-jlpt", level);
-                span.title = `${surface} [${pos}] [${level}] 点击查看释义`;
-                console.log(`[click-lookup] 检测到 ${level} 词汇: ${surface}`);
+              jlptLevel = jlptChecker.getLevel(surface);
+              if (jlptLevel) {
+                span.setAttribute("data-jlpt", jlptLevel);
+                span.title = `${surface} [${pos}] [${jlptLevel}] 点击查看释义`;
+                console.log(`[click-lookup] 检测到 ${jlptLevel} 词汇: ${surface}`);
               } else {
                 span.title = `${surface} [${pos}] 点击查看释义`;
               }
@@ -825,6 +910,30 @@ function addSettingsStyles() {
             }
           } else {
             span.title = `${surface} [${pos}] 点击查看释义`;
+          }
+          
+          // 检查该 JLPT 等级是否在用户勾选的显示列表中
+          const isJlptLevelEnabled = jlptLevel && 
+            currentConfig.jlptLevels && 
+            currentConfig.jlptLevels.includes(jlptLevel);
+          
+          // 如果该 JLPT 等级在显示列表中，添加 data-jlpt 属性（用于波浪下划线样式）
+          if (isJlptLevelEnabled) {
+            span.setAttribute("data-jlpt", jlptLevel);
+          }
+          
+          // 创建词汇文本节点
+          const textNode = document.createTextNode(surface);
+          span.appendChild(textNode);
+          
+          // 如果配置允许显示标签，且该等级在显示列表中，则添加标签
+          if (currentConfig.showJlptTag && isJlptLevelEnabled) {
+            const tag = document.createElement("span");
+            tag.className = "jlpt-tag";
+            tag.setAttribute("data-level", jlptLevel);
+            // 使用数字表示等级：N1→1, N2→2, N3→3, N4→4, N5→5
+            tag.textContent = jlptLevel.replace('N', '');
+            span.appendChild(tag);
           }
           
           // 使用事件委托，存储引用便于清理
@@ -902,41 +1011,75 @@ function addSettingsStyles() {
   /**
    * 添加必要的 CSS 样式
    * N1 词汇使用波浪下划线，其他词汇使用虚线下划线
+   * 添加 JLPT 等级标签样式
    */
   function addStyles() {
     const style = document.createElement("style");
     style.textContent = `
-      /* 默认样式：虚线下划线（非 N1 词汇） */
+      /* 默认样式：虚线下划线（非 JLPT 词汇） */
       .click-lookup-word {
         cursor: pointer;
         text-decoration: underline dashed rgba(0, 122, 204, 0.6);
         text-decoration-thickness: 1.5px;
         text-underline-offset: 2px;
         transition: background-color 0.2s;
+        position: relative;
+        display: inline-block;
       }
       .click-lookup-word:hover {
         background-color: #e6f3ff;
       }
       
-      /* N1 词汇：波浪下划线（红色系） */
-      .click-lookup-word[data-jlpt="N1"] {
-        text-decoration: underline wavy rgba(231, 76, 60, 0.7);
-        text-decoration-thickness: 1.5px;
+      /* JLPT 词汇：统一使用波浪下划线（红色系）- 强制覆盖其他样式 */
+      .click-lookup-word[data-jlpt],
+      .click-lookup-word[data-jlpt="N1"],
+      .click-lookup-word[data-jlpt="N2"],
+      .click-lookup-word[data-jlpt="N3"],
+      .click-lookup-word[data-jlpt="N4"],
+      .click-lookup-word[data-jlpt="N5"] {
+        text-decoration: underline wavy rgba(231, 76, 60, 0.7) !important;
+        text-decoration-thickness: 1.5px !important;
       }
-      .click-lookup-word[data-jlpt="N1"]:hover {
+      .click-lookup-word[data-jlpt]:hover,
+      .click-lookup-word[data-jlpt="N1"]:hover,
+      .click-lookup-word[data-jlpt="N2"]:hover,
+      .click-lookup-word[data-jlpt="N3"]:hover,
+      .click-lookup-word[data-jlpt="N4"]:hover,
+      .click-lookup-word[data-jlpt="N5"]:hover {
         background-color: #fdeaea;
       }
       
-      /* N2 词汇：虚线下划线（蓝色系） */
-      .click-lookup-word[data-jlpt="N2"] {
-        text-decoration: underline dashed rgba(52, 152, 219, 0.6);
-        text-decoration-thickness: 1.5px;
-      }
-      .click-lookup-word[data-jlpt="N2"]:hover {
-        background-color: #ebf5fb;
+      /* JLPT 等级标签样式 - 绝对定位右上角，黑色背景正方形 */
+      .jlpt-tag {
+        position: absolute;
+        top: -4px;
+        right: -4px;
+        font-size: 8px;
+        font-weight: 600;
+        line-height: 1;
+        width: 12px;
+        height: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 2px;
+        opacity: 0.85;
+        transition: all 0.2s;
+        font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        z-index: 1;
+        background: rgba(0, 0, 0, 0.75);
+        color: white;
+        transform: scale(0.85);
+        transform-origin: center;
       }
       
-      /* 按词性区分颜色（仅用于非 N1/N2 词汇） */
+      .click-lookup-word:hover .jlpt-tag {
+        opacity: 1;
+        transform: scale(0.95);
+      }
+      
+      /* 按词性区分颜色（仅用于非 JLPT 词汇） */
       .click-lookup-word[data-pos="動詞"]:not([data-jlpt]) {
         text-decoration-color: rgba(231, 76, 60, 0.5);
       }
@@ -1017,6 +1160,11 @@ function addSettingsStyles() {
     enable: enableClickLookup,
     initTokenizer: initTokenizer,
     cleanup: cleanup,
+    updateConfig: (newConfig) => {
+      // 更新全局配置
+      currentConfig = { ...currentConfig, ...newConfig };
+      console.log("[click-lookup] 配置已更新:", currentConfig);
+    },
   };
 
   // ============ 自动初始化 ============
