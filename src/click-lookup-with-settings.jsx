@@ -918,14 +918,19 @@ function addSettingsStyles() {
             const wordTextNode = document.createTextNode(surface);
             span.appendChild(wordTextNode);
 
-            // 如果配置允许显示 JLPT 标签，则添加标签
+            // 如果配置允许显示 JLPT 标签，则添加标签（外层正方形 + 内层数字）
             if (currentConfig.showJlptTag) {
-              const tag = document.createElement("span");
-              tag.className = "jlpt-tag";
-              tag.setAttribute("data-level", jlptLevel);
+              const tagOuter = document.createElement("div");
+              tagOuter.className = "jlpt-tag";
+              tagOuter.setAttribute("data-level", jlptLevel);
+              
+              const tagInner = document.createElement("div");
+              tagInner.className = "jlpt-tag-inner";
               // 使用数字表示等级：N1→1, N2→2, N3→3, N4→4, N5→5
-              tag.textContent = jlptLevel.replace('N', '');
-              span.appendChild(tag);
+              tagInner.textContent = jlptLevel.replace('N', '');
+              
+              tagOuter.appendChild(tagInner);
+              span.appendChild(tagOuter);
             }
 
             // 存储事件处理器引用便于清理
@@ -1042,34 +1047,42 @@ function addSettingsStyles() {
         background-color: #fdeaea;
       }
       
-      /* JLPT 等级标签样式 - 绝对定位右上角，黑色背景正方形 */
+      /* JLPT 等级标签样式 - 绝对定位右上角，外层固定尺寸正方形 */
       .jlpt-tag {
         position: absolute;
-        top: -4px;
-        right: -4px;
-        font-size: 8px;
-        font-weight: 600;
-        line-height: 1;
-        width: 12px;
-        height: 12px;
+        top: -6px;
+        right: -6px;
+        width: 10px;
+        height: 10px;
+        border-radius: 2px;
+        opacity: 0.85;
+        transition: opacity 0.2s;
+        z-index: 1;
+        background: rgba(0, 0, 0, 0.75);
+        overflow: hidden;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 2px;
-        opacity: 0.85;
-        transition: all 0.2s;
+      }
+      
+      /* 内层数字容器 - 用 scale 缩小数字，不影响外层正方形 */
+      .jlpt-tag-inner {
+        display: flex;
+        align-items: center;
+        justify-content: center;
         font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-        z-index: 1;
-        background: rgba(0, 0, 0, 0.75);
+        font-size: 16px;
+        font-weight: 700;
+        line-height: 1;
         color: white;
-        transform: scale(0.85);
+        transform: scale(0.5);
         transform-origin: center;
+        width: 100%;
+        height: 100%;
       }
       
       .click-lookup-word:hover .jlpt-tag {
         opacity: 1;
-        transform: scale(0.95);
       }
       
       /* 按词性区分颜色（仅用于非 JLPT 词汇） */
