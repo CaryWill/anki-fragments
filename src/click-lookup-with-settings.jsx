@@ -887,64 +887,57 @@ function addSettingsStyles() {
 
         // 创建可点击的词元素
         if (isLookupablePOS(pos, surface)) {
-          const span = document.createElement("span");
-          span.className = "click-lookup-word";
-          span.setAttribute("data-pos", pos);
-          span.setAttribute("data-lemma", token.basic_form || surface);
-          
-          // 检查 JLPT 级别并添加标记
+          // 先查询该词的 JLPT 等级
           let jlptLevel = null;
           if (jlptReady && jlptChecker) {
             try {
               jlptLevel = jlptChecker.getLevel(surface);
-              if (jlptLevel) {
-                span.setAttribute("data-jlpt", jlptLevel);
-                span.title = `${surface} [${pos}] [${jlptLevel}] 点击查看释义`;
-                console.log(`[click-lookup] 检测到 ${jlptLevel} 词汇: ${surface}`);
-              } else {
-                span.title = `${surface} [${pos}] 点击查看释义`;
-              }
             } catch (err) {
               console.warn(`[click-lookup] 检查 JLPT 级别失败 (${surface}):`, err);
-              span.title = `${surface} [${pos}] 点击查看释义`;
             }
+          }
+
+          // 检查该词的 JLPT 等级是否在用户勾选的列表中
+          // 如果 jlptLevels 为空，或该词不属于任何已勾选的等级，则不处理（保持普通文本）
+          const enabledLevels = currentConfig.jlptLevels || [];
+          const isJlptLevelEnabled = jlptLevel && enabledLevels.includes(jlptLevel);
+
+          if (!isJlptLevelEnabled) {
+            // 该词不在勾选的 JLPT 等级中，保持普通文本
+            fragment.appendChild(document.createTextNode(surface));
           } else {
-            span.title = `${surface} [${pos}] 点击查看释义`;
-          }
-          
-          // 检查该 JLPT 等级是否在用户勾选的显示列表中
-          const isJlptLevelEnabled = jlptLevel && 
-            currentConfig.jlptLevels && 
-            currentConfig.jlptLevels.includes(jlptLevel);
-          
-          // 如果该 JLPT 等级在显示列表中，添加 data-jlpt 属性（用于波浪下划线样式）
-          if (isJlptLevelEnabled) {
+            // 该词在勾选的 JLPT 等级中，创建可点击 span
+            const span = document.createElement("span");
+            span.className = "click-lookup-word";
+            span.setAttribute("data-pos", pos);
+            span.setAttribute("data-lemma", token.basic_form || surface);
             span.setAttribute("data-jlpt", jlptLevel);
+            span.title = `${surface} [${pos}] [${jlptLevel}] 点击查看释义`;
+
+            // 创建词汇文本节点
+            const wordTextNode = document.createTextNode(surface);
+            span.appendChild(wordTextNode);
+
+            // 如果配置允许显示 JLPT 标签，则添加标签
+            if (currentConfig.showJlptTag) {
+              const tag = document.createElement("span");
+              tag.className = "jlpt-tag";
+              tag.setAttribute("data-level", jlptLevel);
+              // 使用数字表示等级：N1→1, N2→2, N3→3, N4→4, N5→5
+              tag.textContent = jlptLevel.replace('N', '');
+              span.appendChild(tag);
+            }
+
+            // 存储事件处理器引用便于清理
+            span._lookupHandler = (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              lookupWord(token.basic_form || surface);
+            };
+            span.addEventListener("click", span._lookupHandler);
+
+            fragment.appendChild(span);
           }
-          
-          // 创建词汇文本节点
-          const textNode = document.createTextNode(surface);
-          span.appendChild(textNode);
-          
-          // 如果配置允许显示标签，且该等级在显示列表中，则添加标签
-          if (currentConfig.showJlptTag && isJlptLevelEnabled) {
-            const tag = document.createElement("span");
-            tag.className = "jlpt-tag";
-            tag.setAttribute("data-level", jlptLevel);
-            // 使用数字表示等级：N1→1, N2→2, N3→3, N4→4, N5→5
-            tag.textContent = jlptLevel.replace('N', '');
-            span.appendChild(tag);
-          }
-          
-          // 使用事件委托，存储引用便于清理
-          span._lookupHandler = (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            lookupWord(token.basic_form || surface);
-          };
-          span.addEventListener("click", span._lookupHandler);
-          
-          fragment.appendChild(span);
         } else {
           // 非目标词性，保持普通文本
           fragment.appendChild(document.createTextNode(surface));
