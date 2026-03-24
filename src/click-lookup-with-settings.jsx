@@ -821,11 +821,6 @@ function addSettingsStyles() {
       if (node.parentElement.closest(".click-lookup-word")) {
         continue;
       }
-      
-      // 跳过已经处理过的父节点下的文本节点
-      if (node.parentElement._clickLookupProcessed) {
-        continue;
-      }
 
       // 跳过笔记和答案区域内的节点
       if (isInExcludedArea(node.parentElement)) {
@@ -861,11 +856,6 @@ function addSettingsStyles() {
         return;
       }
 
-      // 检查父节点是否已经被处理过（避免重复处理）
-      if (parent._clickLookupProcessed) {
-        return;
-      }
-
       let currentIndex = 0;
       const fragment = document.createDocumentFragment();
 
@@ -885,67 +875,72 @@ function addSettingsStyles() {
           fragment.appendChild(document.createTextNode(normalText));
         }
 
-        // 创建可点击的词元素
-        if (isLookupablePOS(pos, surface)) {
-          // 先查询该词的 JLPT 等级
-          let jlptLevel = null;
-          if (jlptReady && jlptChecker) {
-            try {
-              jlptLevel = jlptChecker.getLevel(surface);
-            } catch (err) {
-              console.warn(`[click-lookup] 检查 JLPT 级别失败 (${surface}):`, err);
-            }
-          }
-
-          // 检查该词的 JLPT 等级是否在用户勾选的列表中
-          // 如果 jlptLevels 为空，或该词不属于任何已勾选的等级，则不处理（保持普通文本）
-          const enabledLevels = currentConfig.jlptLevels || [];
-          const isJlptLevelEnabled = jlptLevel && enabledLevels.includes(jlptLevel);
-
-          if (!isJlptLevelEnabled) {
-            // 该词不在勾选的 JLPT 等级中，保持普通文本
-            fragment.appendChild(document.createTextNode(surface));
-          } else {
-            // 该词在勾选的 JLPT 等级中，创建可点击 span
-            const span = document.createElement("span");
-            span.className = "click-lookup-word";
-            span.setAttribute("data-pos", pos);
-            span.setAttribute("data-lemma", token.basic_form || surface);
-            span.setAttribute("data-jlpt", jlptLevel);
-            span.title = `${surface} [${pos}] [${jlptLevel}] 点击查看释义`;
-
-            // 创建词汇文本节点
-            const wordTextNode = document.createTextNode(surface);
-            span.appendChild(wordTextNode);
-
-            // 如果配置允许显示 JLPT 标签，则添加标签（外层正方形 + 内层数字）
-            if (currentConfig.showJlptTag) {
-              const tagOuter = document.createElement("div");
-              tagOuter.className = "jlpt-tag";
-              tagOuter.setAttribute("data-level", jlptLevel);
-              
-              const tagInner = document.createElement("div");
-              tagInner.className = "jlpt-tag-inner";
-              // 使用数字表示等级：N1→1, N2→2, N3→3, N4→4, N5→5
-              tagInner.textContent = jlptLevel.replace('N', '');
-              
-              tagOuter.appendChild(tagInner);
-              span.appendChild(tagOuter);
-            }
-
-            // 存储事件处理器引用便于清理
-            span._lookupHandler = (e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              lookupWord(token.basic_form || surface);
-            };
-            span.addEventListener("click", span._lookupHandler);
-
-            fragment.appendChild(span);
-          }
-        } else {
-          // 非目标词性，保持普通文本
+        // 单字符和标点符号无论何种模式都跳过
+        const charCount = Array.from(surface).length;
+        if (charCount <= 1 || isPunctuationOrNumber(surface)) {
           fragment.appendChild(document.createTextNode(surface));
+          currentIndex = tokenIndex + surface.length;
+          return;
+        }
+
+        // 查询 JLPT 等级：优先用词典形（basic_form），活用形在 JLPT 数据里找不到
+        // 例如：超え → 超える（N2），収め → 収める（N3），促し → 促す（N1）
+        let jlptLevel = null;
+        if (jlptReady && jlptChecker) {
+          try {
+            const basicForm = token.basic_form && token.basic_form !== '*' ? token.basic_form : null;
+            jlptLevel = (basicForm && jlptChecker.getLevel(basicForm)) || jlptChecker.getLevel(surface);
+          } catch (err) {
+            console.warn(`[click-lookup] 检查 JLPT 级别失败 (${surface}):`, err);
+          }
+        }
+
+        // 检查该词的 JLPT 等级是否在用户勾选的列表中
+        const enabledLevels = currentConfig.jlptLevels || [];
+        const isJlptLevelEnabled = jlptLevel && enabledLevels.includes(jlptLevel);
+
+        // JLPT 命中时直接创建可点击 span，不再做词性过滤
+        // 这样代名詞（彼ら）、連体詞（この）等非常规词性也能被标注
+        // 未命中时 fallback 到词性过滤（isLookupablePOS），但这类词不显示为可点击
+        if (!isJlptLevelEnabled) {
+          fragment.appendChild(document.createTextNode(surface));
+          currentIndex = tokenIndex + surface.length;
+          return;
+        }
+
+        // 该词在勾选的 JLPT 等级中，创建可点击 span
+        {
+          const span = document.createElement("span");
+          span.className = "click-lookup-word";
+          span.setAttribute("data-pos", pos);
+          span.setAttribute("data-lemma", token.basic_form || surface);
+          span.setAttribute("data-jlpt", jlptLevel);
+          span.title = `${surface} [${pos}] [${jlptLevel}] 点击查看释义`;
+
+          span.appendChild(document.createTextNode(surface));
+
+          // 如果配置允许显示 JLPT 标签，则添加标签（外层正方形 + 内层数字）
+          if (currentConfig.showJlptTag) {
+            const tagOuter = document.createElement("div");
+            tagOuter.className = "jlpt-tag";
+            tagOuter.setAttribute("data-level", jlptLevel);
+
+            const tagInner = document.createElement("div");
+            tagInner.className = "jlpt-tag-inner";
+            tagInner.textContent = jlptLevel.replace('N', '');
+
+            tagOuter.appendChild(tagInner);
+            span.appendChild(tagOuter);
+          }
+
+          span._lookupHandler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            lookupWord(token.basic_form || surface);
+          };
+          span.addEventListener("click", span._lookupHandler);
+
+          fragment.appendChild(span);
         }
 
         currentIndex = tokenIndex + surface.length;
@@ -957,9 +952,6 @@ function addSettingsStyles() {
         fragment.appendChild(document.createTextNode(remainingText));
       }
 
-      // 标记父节点已处理
-      parent._clickLookupProcessed = true;
-      
       // 替换原始文本节点
       parent.replaceChild(fragment, textNode);
     } catch (err) {
@@ -1148,13 +1140,6 @@ function addSettingsStyles() {
       if (el._lookupHandler) {
         el.removeEventListener("click", el._lookupHandler);
         delete el._lookupHandler;
-      }
-    });
-    
-    // 清理父节点的处理标记
-    document.querySelectorAll("*").forEach((el) => {
-      if (el._clickLookupProcessed) {
-        delete el._clickLookupProcessed;
       }
     });
     

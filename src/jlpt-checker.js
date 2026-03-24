@@ -11,6 +11,9 @@ class JLPTChecker {
     // key: 词汇表面形，value: Set of readings
     this.n1Words = new Map();
     this.n2Words = new Map();
+    this.n3Words = new Map();
+    this.n4Words = new Map();
+    this.n5Words = new Map();
     this.isLoaded = false;
     this.loadPromise = null;
   }
@@ -51,7 +54,7 @@ class JLPTChecker {
         this._parseJSON(data);
       }
       
-      console.log(`[JLPT Checker] 加载完成: N1=${this.n1Words.size} 词, N2=${this.n2Words.size} 词`);
+      console.log(`[JLPT Checker] 加载完成: N1=${this.n1Words.size} 词, N2=${this.n2Words.size} 词, N3=${this.n3Words.size} 词, N4=${this.n4Words.size} 词, N5=${this.n5Words.size} 词`);
     } catch (error) {
       console.error('[JLPT Checker] 加载失败:', error);
       // 加载失败时使用空集合，不影响其他功能
@@ -71,16 +74,20 @@ class JLPTChecker {
       const reading = metadata.reading;
       const level = metadata.frequency?.displayValue;
 
-      if (level === 'N1') {
-        if (!this.n1Words.has(word)) {
-          this.n1Words.set(word, new Set());
+      const levelMap = {
+        'N1': this.n1Words,
+        'N2': this.n2Words,
+        'N3': this.n3Words,
+        'N4': this.n4Words,
+        'N5': this.n5Words,
+      };
+
+      const targetMap = levelMap[level];
+      if (targetMap) {
+        if (!targetMap.has(word)) {
+          targetMap.set(word, new Set());
         }
-        this.n1Words.get(word).add(reading);
-      } else if (level === 'N2') {
-        if (!this.n2Words.has(word)) {
-          this.n2Words.set(word, new Set());
-        }
-        this.n2Words.get(word).add(reading);
+        targetMap.get(word).add(reading);
       }
     }
   }
@@ -92,27 +99,8 @@ class JLPTChecker {
    * @returns {boolean} 如果是 N1 或 N2 词汇返回 true
    */
   isN1OrN2(word, reading = null) {
-    if (!this.isLoaded) {
-      console.warn('[JLPT Checker] 数据尚未加载');
-      return false;
-    }
-
-    // 如果提供了读音，进行精确匹配
-    if (reading) {
-      const n1Readings = this.n1Words.get(word);
-      const n2Readings = this.n2Words.get(word);
-      
-      if (n1Readings && n1Readings.has(reading)) {
-        return true;
-      }
-      if (n2Readings && n2Readings.has(reading)) {
-        return true;
-      }
-      return false;
-    }
-
-    // 没有读音时，只检查词汇是否存在
-    return this.n1Words.has(word) || this.n2Words.has(word);
+    const level = this.getLevel(word, reading);
+    return level === 'N1' || level === 'N2';
   }
 
   /**
@@ -126,26 +114,30 @@ class JLPTChecker {
       return null;
     }
 
+    const levelEntries = [
+      ['N1', this.n1Words],
+      ['N2', this.n2Words],
+      ['N3', this.n3Words],
+      ['N4', this.n4Words],
+      ['N5', this.n5Words],
+    ];
+
     // 如果提供了读音，进行精确匹配
     if (reading) {
-      const n1Readings = this.n1Words.get(word);
-      if (n1Readings && n1Readings.has(reading)) {
-        return 'N1';
+      for (const [level, wordMap] of levelEntries) {
+        const readings = wordMap.get(word);
+        if (readings && readings.has(reading)) {
+          return level;
+        }
       }
-      
-      const n2Readings = this.n2Words.get(word);
-      if (n2Readings && n2Readings.has(reading)) {
-        return 'N2';
-      }
-      
       return null;
     }
 
     // 没有读音时，只检查词汇是否存在
-    if (this.n1Words.has(word)) {
-      return 'N1';
-    } else if (this.n2Words.has(word)) {
-      return 'N2';
+    for (const [level, wordMap] of levelEntries) {
+      if (wordMap.has(word)) {
+        return level;
+      }
     }
     return null;
   }
