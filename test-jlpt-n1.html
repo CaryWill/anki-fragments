@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JLPT N1 词汇测试</title>
+    <link rel="stylesheet" href="default.css">
+</head>
+<body>
+    <div class="card">
+        <div id="sticky-header">
+            <div id="button-container"></div>
+        </div>
+        
+        <div class="myCard">
+            <div id="front">
+                <!-- 测试句子：包含多个 N1 词汇 -->
+                この学校に在籍している生徒は100名を超える。彼らの間柄は良好で、相対的に見ても優秀な成績を収めている。愛想の良い先生が、敢えて厳しい指導を行うことで、生徒たちの成長を促している。
+            </div>
+        </div>
+        
+        <div class="myCard">
+            <div id="def">
+                <h3>N1 词汇说明</h3>
+                <ul>
+                    <li><strong>間柄</strong> (あいだがら) - 关系、交情 [N1]</li>
+                    <li><strong>相対</strong> (あいたい) - 相对 [N1]</li>
+                    <li><strong>愛想</strong> (あいそ) - 和蔼、亲切 [N1]</li>
+                    <li><strong>敢えて</strong> (あえて) - 故意、特意 [N1]</li>
+                    <li><strong>在籍</strong> (ざいせき) - 在籍、在学 [N1]</li>
+                </ul>
+                <p><strong>预期效果</strong>：以上 N1 词汇应该显示<span style="text-decoration: underline wavy red;">红色波浪下划线</span></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加载必要的脚本 -->
+    <script src="kuromoji.js"></script>
+    <script src="jlpt-checker.js"></script>
+    <script src="click-lookup.bundle.js"></script>
+    
+    <!-- 测试脚本 -->
+    <script>
+        // 等待页面加载完成后执行测试
+        window.addEventListener('load', function() {
+            setTimeout(async function() {
+                console.log('=== JLPT N1 词汇测试 ===');
+                
+                // 1. 检查 jlptChecker
+                if (typeof window.jlptChecker === 'undefined') {
+                    console.error('❌ window.jlptChecker 未定义');
+                    alert('错误：JLPT Checker 未加载');
+                    return;
+                }
+                console.log('✅ window.jlptChecker 已定义');
+                
+                // 2. 等待数据加载
+                let retries = 0;
+                while (!window.jlptChecker.isLoaded && retries < 10) {
+                    console.log('⏳ 等待 JLPT 数据加载... (' + (retries + 1) + '/10)');
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    retries++;
+                }
+                
+                if (!window.jlptChecker.isLoaded) {
+                    console.error('❌ JLPT 数据加载超时');
+                    alert('错误：JLPT 数据加载超时');
+                    return;
+                }
+                
+                console.log('✅ JLPT 数据已加载');
+                console.log('📊 N1 词汇数:', window.jlptChecker.n1Words.size);
+                console.log('📊 N2 词汇数:', window.jlptChecker.n2Words.size);
+                
+                // 3. 测试 N1 词汇
+                const testWords = ['間柄', '相対', '愛想', '敢えて', '在籍'];
+                console.log('\n🔍 测试 N1 词汇识别：');
+                
+                testWords.forEach(word => {
+                    const level = window.jlptChecker.getLevel(word);
+                    const icon = level === 'N1' ? '✅' : '❌';
+                    console.log(`${icon} "${word}": ${level || '未识别'}`);
+                });
+                
+                // 4. 检查 DOM 元素
+                console.log('\n📝 检查 DOM 元素：');
+                const elements = document.querySelectorAll('.click-lookup-word');
+                console.log('找到', elements.length, '个可点击词汇');
+                
+                const n1Elements = Array.from(elements).filter(el => 
+                    el.getAttribute('data-jlpt') === 'N1'
+                );
+                console.log('其中 N1 词汇:', n1Elements.length, '个');
+                
+                // 5. 详细检查每个 N1 词汇
+                console.log('\n🎨 N1 词汇样式检查：');
+                testWords.forEach(word => {
+                    const element = Array.from(elements).find(el => el.textContent === word);
+                    if (element) {
+                        const jlptLevel = element.getAttribute('data-jlpt');
+                        const styles = window.getComputedStyle(element);
+                        const decoration = styles.textDecoration;
+                        const hasWavy = decoration.includes('wavy');
+                        const icon = (jlptLevel === 'N1' && hasWavy) ? '✅' : '❌';
+                        
+                        console.log(`${icon} "${word}":`);
+                        console.log(`   - JLPT级别: ${jlptLevel || '无'}`);
+                        console.log(`   - 下划线样式: ${decoration}`);
+                        console.log(`   - 是否波浪线: ${hasWavy ? '是' : '否'}`);
+                    } else {
+                        console.log(`❌ "${word}": 未找到元素`);
+                    }
+                });
+                
+                console.log('\n=== 测试完成 ===');
+                
+                // 显示结果摘要
+                const summary = `
+测试结果摘要：
+- 总词汇数: ${elements.length}
+- N1 词汇数: ${n1Elements.length}
+- 预期 N1 词汇: ${testWords.length}
+
+${n1Elements.length === testWords.length ? '✅ 所有 N1 词汇都正确识别' : '⚠️ 部分 N1 词汇未正确识别'}
+                `.trim();
+                
+                console.log('\n' + summary);
+                
+                // 在页面上显示结果
+                const resultDiv = document.createElement('div');
+                resultDiv.style.cssText = 'position: fixed; top: 10px; right: 10px; background: white; border: 2px solid #333; padding: 15px; border-radius: 5px; box-shadow: 0 2px 10px rgba(0,0,0,0.2); max-width: 300px; z-index: 10000;';
+                resultDiv.innerHTML = `
+                    <h4 style="margin: 0 0 10px 0;">测试结果</h4>
+                    <pre style="margin: 0; font-size: 12px; white-space: pre-wrap;">${summary}</pre>
+                    <button onclick="this.parentElement.remove()" style="margin-top: 10px; width: 100%;">关闭</button>
+                `;
+                document.body.appendChild(resultDiv);
+                
+            }, 2000); // 等待 2 秒确保所有脚本加载完成
+        });
+    </script>
+</body>
+</html>

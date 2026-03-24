@@ -457,8 +457,70 @@ function addSettingsStyles() {
   let tokenizerReady = false;
   let isProcessing = false;
 
+  // JLPT Checker 加载状态
+  let jlptChecker = null;
+  let jlptReady = false;
+
   // 当前配置
   let currentConfig = { ...defaultConfig };
+
+  /**
+   * 初始化 JLPT Checker
+   */
+  async function initJLPTChecker() {
+    if (jlptReady && jlptChecker) {
+      return jlptChecker;
+    }
+
+    try {
+      // 检查是否已经加载
+      if (typeof window.jlptChecker !== "undefined") {
+        jlptChecker = window.jlptChecker;
+        await jlptChecker.load();
+        jlptReady = true;
+        console.log("[click-lookup] JLPT Checker 已存在，直接使用");
+        return jlptChecker;
+      }
+
+      // 动态加载 jlpt-checker.js（作为普通脚本，不是模块）
+      await new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "jlpt-checker.js";
+        // 不设置 type="module"，让它作为普通脚本加载
+        script.onload = () => {
+          console.log("[click-lookup] jlpt-checker.js 脚本加载完成");
+          resolve();
+        };
+        script.onerror = (err) => {
+          console.error("[click-lookup] jlpt-checker.js 加载失败:", err);
+          reject(err);
+        };
+        document.head.appendChild(script);
+      });
+
+      // 等待一小段时间确保脚本执行完成
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // 获取全局 jlptChecker 对象
+      jlptChecker = window.jlptChecker;
+      
+      if (!jlptChecker) {
+        throw new Error("window.jlptChecker 未定义");
+      }
+
+      // 加载 JLPT 数据
+      await jlptChecker.load();
+      jlptReady = true;
+      console.log("[click-lookup] JLPT Checker 加载成功，N1词汇数:", jlptChecker.n1Words?.size || 0);
+      
+      return jlptChecker;
+    } catch (err) {
+      console.error("[click-lookup] JLPT Checker 初始化失败:", err);
+      jlptReady = false;
+      jlptChecker = null;
+      return null;
+    }
+  }
 
   /**
    * 初始化 kuromoji 分词器
@@ -745,7 +807,25 @@ function addSettingsStyles() {
           span.className = "click-lookup-word";
           span.setAttribute("data-pos", pos);
           span.setAttribute("data-lemma", token.basic_form || surface);
-          span.title = `${surface} [${pos}] 点击查看释义`;
+          
+          // 检查 JLPT 级别并添加标记
+          if (jlptReady && jlptChecker) {
+            try {
+              const level = jlptChecker.getLevel(surface);
+              if (level) {
+                span.setAttribute("data-jlpt", level);
+                span.title = `${surface} [${pos}] [${level}] 点击查看释义`;
+                console.log(`[click-lookup] 检测到 ${level} 词汇: ${surface}`);
+              } else {
+                span.title = `${surface} [${pos}] 点击查看释义`;
+              }
+            } catch (err) {
+              console.warn(`[click-lookup] 检查 JLPT 级别失败 (${surface}):`, err);
+              span.title = `${surface} [${pos}] 点击查看释义`;
+            }
+          } else {
+            span.title = `${surface} [${pos}] 点击查看释义`;
+          }
           
           // 使用事件委托，存储引用便于清理
           span._lookupHandler = (e) => {
@@ -791,8 +871,11 @@ function addSettingsStyles() {
     isProcessing = true;
 
     try {
-      // 等待分词器就绪
-      await initTokenizer();
+      // 并行加载分词器和 JLPT Checker
+      await Promise.all([
+        initTokenizer(),
+        initJLPTChecker()
+      ]);
 
       const body = document.body;
       if (!body) {
@@ -818,45 +901,69 @@ function addSettingsStyles() {
 
   /**
    * 添加必要的 CSS 样式
-   * 文字颜色保持默认，仅下划线颜色区分词性
-   * 添加透明度使下划线不那么喧宾夺主
+   * N1 词汇使用波浪下划线，其他词汇使用虚线下划线
    */
   function addStyles() {
     const style = document.createElement("style");
     style.textContent = `
+      /* 默认样式：虚线下划线（非 N1 词汇） */
       .click-lookup-word {
         cursor: pointer;
-        text-decoration: underline wavy rgba(0, 122, 204, 0.5);
+        text-decoration: underline dashed rgba(0, 122, 204, 0.6);
+        text-decoration-thickness: 1.5px;
         text-underline-offset: 2px;
         transition: background-color 0.2s;
       }
       .click-lookup-word:hover {
         background-color: #e6f3ff;
       }
-      .click-lookup-word[data-pos="動詞"] {
-        text-decoration: underline wavy rgba(231, 76, 60, 0.5);
+      
+      /* N1 词汇：波浪下划线（红色系） */
+      .click-lookup-word[data-jlpt="N1"] {
+        text-decoration: underline wavy rgba(231, 76, 60, 0.7);
+        text-decoration-thickness: 1.5px;
       }
-      .click-lookup-word[data-pos="動詞"]:hover {
+      .click-lookup-word[data-jlpt="N1"]:hover {
         background-color: #fdeaea;
       }
-      .click-lookup-word[data-pos="形容詞"],
-      .click-lookup-word[data-pos="形容動詞"] {
-        text-decoration: underline wavy rgba(39, 174, 96, 0.5);
+      
+      /* N2 词汇：虚线下划线（蓝色系） */
+      .click-lookup-word[data-jlpt="N2"] {
+        text-decoration: underline dashed rgba(52, 152, 219, 0.6);
+        text-decoration-thickness: 1.5px;
       }
-      .click-lookup-word[data-pos="形容詞"]:hover,
-      .click-lookup-word[data-pos="形容動詞"]:hover {
+      .click-lookup-word[data-jlpt="N2"]:hover {
+        background-color: #ebf5fb;
+      }
+      
+      /* 按词性区分颜色（仅用于非 N1/N2 词汇） */
+      .click-lookup-word[data-pos="動詞"]:not([data-jlpt]) {
+        text-decoration-color: rgba(231, 76, 60, 0.5);
+      }
+      .click-lookup-word[data-pos="動詞"]:not([data-jlpt]):hover {
+        background-color: #fdeaea;
+      }
+      
+      .click-lookup-word[data-pos="形容詞"]:not([data-jlpt]),
+      .click-lookup-word[data-pos="形容動詞"]:not([data-jlpt]) {
+        text-decoration-color: rgba(39, 174, 96, 0.5);
+      }
+      .click-lookup-word[data-pos="形容詞"]:not([data-jlpt]):hover,
+      .click-lookup-word[data-pos="形容動詞"]:not([data-jlpt]):hover {
         background-color: #eafaf1;
       }
-      .click-lookup-word[data-pos="名詞"] {
-        text-decoration: underline wavy rgba(142, 68, 173, 0.5);
+      
+      .click-lookup-word[data-pos="名詞"]:not([data-jlpt]) {
+        text-decoration-color: rgba(142, 68, 173, 0.5);
       }
-      .click-lookup-word[data-pos="名詞"]:hover {
+      .click-lookup-word[data-pos="名詞"]:not([data-jlpt]):hover {
         background-color: #f5eef8;
       }
-      .click-lookup-word[data-pos="副詞"] {
-        text-decoration: underline wavy rgba(243, 156, 18, 0.5);
+      
+      .click-lookup-word[data-pos="副詞"]:not([data-jlpt]) {
+        text-decoration-color: rgba(243, 156, 18, 0.5);
       }
-      .click-lookup-word[data-pos="副詞"]:hover {
+      .click-lookup-word[data-pos="副詞"]:not([data-jlpt]):hover {
         background-color: #fef5e7;
       }
     `;

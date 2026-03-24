@@ -76,7 +76,7 @@ function copyToAnki(distDir, ankiDir) {
   
   // 要复制到 Anki 的文件列表
   const filesToCopy = [
-    "default.css", "font-changer.js", "kuromoji.js", "lame.min.js", 
+    "default.css", "font-changer.js", "jlpt-checker.js", "kuromoji.js", "lame.min.js", 
     "lookup.js", "click-lookup.bundle.js", "provider-switcher.js", "share.js", "tts.bundle.js"
   ];
   
@@ -98,6 +98,20 @@ function copyToAnki(distDir, ankiDir) {
     "unk_char.dat.gz", "unk_compat.dat.gz", "unk_invoke.dat.gz"
   ];
   for (const file of dictFiles) {
+    const src = join(distDir, file);
+    if (existsSync(src)) {
+      const dest = join(ankiDir, file);
+      copyFileSync(src, dest);
+      console.log(`[build] anki  dist/${file} → ${dest}`);
+    }
+  }
+  
+  // 复制 JLPT 数据文件（扁平化）
+  const jlptFiles = [
+    "term_meta_bank_1.json", "term_meta_bank_2.json", "term_meta_bank_3.json",
+    "term_meta_bank_4.json", "term_meta_bank_5.json"
+  ];
+  for (const file of jlptFiles) {
     const src = join(distDir, file);
     if (existsSync(src)) {
       const dest = join(ankiDir, file);
@@ -201,13 +215,26 @@ if (existsSync(kuromojiJsSrc)) {
   console.warn(`[build] Warning: kuromoji.js not found at ${kuromojiJsSrc}`);
 }
 
-// 4. Copy static files at src/ root (font-changer.5.js, lookup.1.js, etc.)
+// 4. 复制 JLPT 数据文件到 dist
+const jlptDataSrc = "src/jlpt-data";
+if (existsSync(jlptDataSrc)) {
+  for (const file of readdirSync(jlptDataSrc)) {
+    const src = join(jlptDataSrc, file);
+    const dest = join(distDir, file);
+    copyFileSync(src, dest);
+    console.log(`[build] jlpt-data ${src} → ${dest}`);
+  }
+} else {
+  console.warn(`[build] Warning: JLPT data dir not found at ${jlptDataSrc}`);
+}
+
+// 5. Copy static files at src/ root (font-changer.5.js, lookup.1.js, etc.)
 copyStaticFiles("src", distDir);
 
-// 5. Deploy everything in dist/ to Anki
+// 6. Deploy everything in dist/ to Anki
 copyToAnki(distDir, ankiDir);
 
-// 6. 将 src/assets/ 下所有文件（递归 flat）直接复制到 Anki media
+// 7. 将 src/assets/ 下所有文件（递归 flat）直接复制到 Anki media
 if (existsSync(ankiDir)) {
   copyFilesFlat("src/assets", ankiDir);
 } else {
