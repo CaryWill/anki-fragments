@@ -1,0 +1,941 @@
+/**
+ * 点击查词功能模块 (包含 React 设置组件)
+ * 自动为页面中的日语词汇添加点击查词功能
+ * 支持动词、形容词、名词、副词
+ */
+
+import React, { useState, useEffect } from "react";
+import ReactDOM from "react-dom/client";
+import { createPortal } from "react-dom";
+import { Modal, Switch, List, Button, Toast } from "antd-mobile";
+import { SetOutline } from "antd-mobile-icons";
+import antdMobileStyles from "antd-mobile/bundle/style.css";
+
+// ==================== React 设置组件部分 ====================
+
+// 配置存储键
+const CONFIG_KEY = "anki_click_lookup_config";
+const TTS_PROVIDER_KEY = "tts_provider";
+const FONT_KEY = "anki_font_pref_v1";
+
+// TTS Providers
+const TTS_PROVIDERS = [
+  { id: "azure", name: "Azure" },
+  { id: "voicevox", name: "VoiceVox" },
+];
+
+// 字体配置
+const FONTS = [
+  { id: "wenkai", name: "霞鹜文楷", family: "LXGWWenKai-Regular" },
+  { id: "neoxihei", name: "霞鹜新晰黑", family: "LXGWNeoXiHeiScreenFull" },
+];
+
+// 默认配置
+const defaultConfig = {
+  enabled: true,
+  onlyKanji: false,
+  ttsProvider: "voicevox",
+  font: "wenkai",
+};
+
+/**
+ * 从 localStorage 加载配置
+ */
+function loadConfig() {
+  try {
+    const saved = localStorage.getItem(CONFIG_KEY);
+    const ttsProvider = localStorage.getItem(TTS_PROVIDER_KEY) || defaultConfig.ttsProvider;
+    const font = localStorage.getItem(FONT_KEY) || defaultConfig.font;
+    
+    if (saved) {
+      return { 
+        ...defaultConfig, 
+        ...JSON.parse(saved),
+        ttsProvider,
+        font,
+      };
+    }
+    return { ...defaultConfig, ttsProvider, font };
+  } catch (e) {
+    console.warn("[click-lookup] 配置加载失败:", e);
+  }
+  return { ...defaultConfig };
+}
+
+/**
+ * 保存配置到 localStorage
+ */
+function saveConfig(config) {
+  try {
+    // 保存点击查词配置
+    const clickLookupConfig = {
+      enabled: config.enabled,
+      onlyKanji: config.onlyKanji,
+    };
+    localStorage.setItem(CONFIG_KEY, JSON.stringify(clickLookupConfig));
+    
+    // 保存 TTS Provider
+    localStorage.setItem(TTS_PROVIDER_KEY, config.ttsProvider);
+    
+    // 保存字体
+    localStorage.setItem(FONT_KEY, config.font);
+    
+    return true;
+  } catch (e) {
+    console.warn("[click-lookup] 配置保存失败:", e);
+    return false;
+  }
+}
+
+/**
+ * 设置按钮和弹窗组件
+ */
+function ClickLookupSettingsComponent() {
+  const [visible, setVisible] = useState(false);
+  const [config, setConfig] = useState(defaultConfig);
+
+  // 加载配置
+  useEffect(() => {
+    setConfig(loadConfig());
+  }, []);
+
+  // 打开弹窗
+  const handleOpen = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setVisible(true);
+  };
+
+  // 关闭弹窗
+  const handleClose = () => {
+    setVisible(false);
+  };
+
+  // 保存配置
+  const handleSave = () => {
+    if (saveConfig(config)) {
+      Toast.show({
+        icon: "success",
+        content: "设置已保存",
+      });
+      setVisible(false);
+      
+      // 触发重新处理页面
+      if (window.AnkiClickLookup) {
+        window.AnkiClickLookup.cleanup();
+        window.AnkiClickLookup.enable();
+      }
+      
+      // 触发 TTS Provider 变更事件
+      window.dispatchEvent(new CustomEvent("ttsProviderChanged", { 
+        detail: { provider: config.ttsProvider } 
+      }));
+      
+      // 应用字体
+      const selectedFont = FONTS.find(f => f.id === config.font);
+      if (selectedFont) {
+        applyFont(selectedFont.family);
+      }
+    } else {
+      Toast.show({
+        icon: "fail",
+        content: "保存失败",
+      });
+    }
+  };
+
+  // 应用字体到所有元素
+  const applyFont = (fontFamily) => {
+    document.querySelectorAll("*").forEach((el) => {
+      // 只排除设置弹窗，按钮也要应用字体
+      if (!el.closest(".adm-modal")) {
+        el.style.setProperty("font-family", fontFamily, "important");
+      }
+    });
+  };
+
+  // 切换启用状态
+  const toggleEnabled = (checked) => {
+    setConfig((prev) => ({ ...prev, enabled: checked }));
+  };
+
+  // 切换只处理汉字
+  const toggleOnlyKanji = (checked) => {
+    setConfig((prev) => ({ ...prev, onlyKanji: checked }));
+  };
+
+  // 切换 TTS Provider
+  const changeTtsProvider = (value) => {
+    setConfig((prev) => ({ ...prev, ttsProvider: value }));
+  };
+
+  // 切换字体
+  const changeFont = (value) => {
+    setConfig((prev) => ({ ...prev, font: value }));
+  };
+
+  return (
+    <>
+      {/* 设置按钮 - 放在 button-container 中，data-order="5" 确保在分享按钮(4)后面 */}
+      <button
+        className="click-lookup-settings-btn-react"
+        onClick={handleOpen}
+        data-order="5"
+        title="点击查词设置"
+      >
+        <SetOutline />
+      </button>
+
+      {/* 使用 Portal 将弹窗渲染到 body，避免被父容器样式影响 */}
+      {createPortal(
+        <Modal
+          visible={visible}
+          onClose={handleClose}
+          title="点击查词设置"
+          content={
+            <div style={{ padding: "12px 0", minWidth: "300px" }}>
+              <List style={{ 
+                "--border-top": "none",
+                "--border-bottom": "none",
+              }}>
+                <List.Item
+                  style={{ 
+                    paddingLeft: "12px",
+                    paddingRight: "12px",
+                  }}
+                  extra={
+                    <Switch
+                      checked={config.enabled}
+                      onChange={toggleEnabled}
+                    />
+                  }
+                >
+                  <div style={{ fontSize: "15px" }}>启用点击查词</div>
+                </List.Item>
+                <List.Item
+                  style={{ 
+                    paddingLeft: "12px",
+                    paddingRight: "12px",
+                  }}
+                  extra={
+                    <Switch
+                      checked={config.onlyKanji}
+                      onChange={toggleOnlyKanji}
+                    />
+                  }
+                >
+                  <div style={{ fontSize: "15px", whiteSpace: "nowrap" }}>
+                    只处理含汉字的词汇
+                  </div>
+                </List.Item>
+                <List.Item
+                  style={{ 
+                    paddingLeft: "12px",
+                    paddingRight: "12px",
+                  }}
+                  extra={
+                    <select
+                      value={config.ttsProvider}
+                      onChange={(e) => changeTtsProvider(e.target.value)}
+                      style={{
+                        padding: "4px 8px",
+                        borderRadius: "4px",
+                        border: "1px solid #d9d9d9",
+                        fontSize: "14px",
+                      }}
+                    >
+                      {TTS_PROVIDERS.map(provider => (
+                        <option key={provider.id} value={provider.id}>
+                          {provider.name}
+                        </option>
+                      ))}
+                    </select>
+                  }
+                >
+                  <div style={{ fontSize: "15px" }}>TTS 语音引擎</div>
+                </List.Item>
+                <List.Item
+                  style={{ 
+                    paddingLeft: "12px",
+                    paddingRight: "12px",
+                  }}
+                  extra={
+                    <select
+                      value={config.font}
+                      onChange={(e) => changeFont(e.target.value)}
+                      style={{
+                        padding: "4px 8px",
+                        borderRadius: "4px",
+                        border: "1px solid #d9d9d9",
+                        fontSize: "14px",
+                      }}
+                    >
+                      {FONTS.map(font => (
+                        <option key={font.id} value={font.id}>
+                          {font.name}
+                        </option>
+                      ))}
+                    </select>
+                  }
+                >
+                  <div style={{ fontSize: "15px" }}>字体</div>
+                </List.Item>
+              </List>
+            </div>
+          }
+          closeOnAction
+          actions={[
+            {
+              key: "cancel",
+              text: "取消",
+              onClick: handleClose,
+            },
+            {
+              key: "save",
+              text: "保存",
+              primary: true,
+              onClick: handleSave,
+            },
+          ]}
+        />,
+        document.body
+      )}
+    </>
+  );
+}
+
+/**
+ * 排序按钮函数（与 share.js 保持一致）
+ */
+function sortButtons(container) {
+  const buttons = Array.from(container.children);
+  buttons.sort((a, b) => {
+    const orderA = parseInt(a.getAttribute("data-order") || "99", 10);
+    const orderB = parseInt(b.getAttribute("data-order") || "99", 10);
+    return orderA - orderB;
+  });
+  buttons.forEach((btn) => container.appendChild(btn));
+}
+
+/**
+ * 渲染设置按钮到指定容器
+ */
+function renderSettingsButton(container) {
+  if (!container) {
+    console.warn("[click-lookup] 未找到容器元素");
+    return;
+  }
+
+  console.log("[click-lookup] 开始渲染设置按钮到 button-container");
+
+  // 创建容器元素
+  const settingsContainer = document.createElement("span");
+  settingsContainer.className = "click-lookup-settings-container";
+  settingsContainer.setAttribute("data-order", "5");
+  
+  // 插入到容器末尾
+  container.appendChild(settingsContainer);
+  
+  console.log("[click-lookup] 设置按钮容器已添加，data-order=5");
+
+  // 使用 React 18 的 createRoot
+  const root = ReactDOM.createRoot(settingsContainer);
+  root.render(<ClickLookupSettingsComponent />);
+
+  // 渲染后排序按钮
+  setTimeout(() => {
+    sortButtons(container);
+    console.log("[click-lookup] 按钮已重新排序");
+  }, 100);
+
+  return root;
+}
+
+/**
+ * 添加必要的 CSS 样式
+ */
+function addSettingsStyles() {
+  // 添加 Ant Design Mobile 样式
+  const antdStyle = document.createElement("style");
+  antdStyle.setAttribute("data-antd-mobile", "true");
+  antdStyle.textContent = antdMobileStyles;
+  document.head.appendChild(antdStyle);
+  
+  // 添加自定义样式
+  const customStyle = document.createElement("style");
+  customStyle.textContent = `
+    .click-lookup-settings-btn-react {
+      /* 继承 default.css 中的 button 样式，只覆盖必要的属性 */
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      vertical-align: middle !important;
+    }
+    
+    .click-lookup-settings-btn-react svg {
+      font-size: 18px !important;
+      width: 18px !important;
+      height: 18px !important;
+      display: block !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+    
+    .click-lookup-settings-btn-react:hover {
+      border: none !important;
+      background: #f0eeef !important;
+      opacity: 0.8;
+    }
+    
+    /* 精确覆盖 default.css 中影响弹窗的样式 */
+    
+    /* 1. 覆盖 .card * { line-height: 1.5 !important; } */
+    .adm-modal *,
+    .adm-center-popup-wrap *,
+    .adm-mask * {
+      line-height: initial !important;
+    }
+    
+    /* 2. 覆盖 :is(div, span):empty { display: none !important; } */
+    .adm-switch div:empty,
+    .adm-switch span:empty,
+    .adm-modal div:empty,
+    .adm-modal span:empty {
+      display: block !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
+    
+    /* 3. 覆盖 button 样式 */
+    .adm-modal button,
+    .adm-center-popup-wrap button {
+      font-size: initial !important;
+      box-shadow: initial !important;
+      border-radius: initial !important;
+      color: initial !important;
+      padding: initial !important;
+      border: initial !important;
+      margin: initial !important;
+      background: initial !important;
+    }
+    
+    /* 4. 弹窗内容使用与 #def 一致的字体 */
+    .adm-modal,
+    .adm-modal *,
+    .adm-center-popup-wrap,
+    .adm-center-popup-wrap * {
+      font-family: "LXGWWenKai-Regular", -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+    }
+    
+    /* Ant Design Mobile 样式覆盖 */
+    .adm-modal-wrap {
+      z-index: 10000 !important;
+    }
+    
+    .adm-toast-mask {
+      z-index: 10001 !important;
+    }
+    
+    .adm-modal {
+      --z-index: 10000;
+    }
+    
+    .adm-center-popup-wrap {
+      z-index: 10000 !important;
+    }
+  `;
+  document.head.appendChild(customStyle);
+}
+
+// ==================== 点击查词功能部分 ====================
+
+(function () {
+  "use strict";
+
+  // kuromoji 加载状态
+  let tokenizer = null;
+  let tokenizerReady = false;
+  let isProcessing = false;
+
+  // 当前配置
+  let currentConfig = { ...defaultConfig };
+
+  /**
+   * 初始化 kuromoji 分词器
+   * 从 Anki media 目录加载词典文件（扁平化路径）
+   */
+  function initTokenizer() {
+    return new Promise((resolve, reject) => {
+      if (tokenizerReady) {
+        resolve(tokenizer);
+        return;
+      }
+
+      // Anki 环境下使用扁平化路径加载词典
+      // 词典文件直接放在根目录，使用空路径
+      const dicPath = "";
+
+      // 动态加载 kuromoji
+      if (typeof kuromoji === "undefined") {
+        // 如果 kuromoji 未加载，创建一个简单的加载脚本
+        const script = document.createElement("script");
+        script.src = "kuromoji.js";
+        script.onload = () => {
+          buildTokenizer(dicPath, resolve, reject);
+        };
+        script.onerror = () => {
+          console.warn("[click-lookup] kuromoji.js 加载失败");
+          reject(new Error("kuromoji load failed"));
+        };
+        document.head.appendChild(script);
+      } else {
+        buildTokenizer(dicPath, resolve, reject);
+      }
+    });
+  }
+
+  /**
+   * 构建分词器
+   */
+  function buildTokenizer(dicPath, resolve, reject) {
+    kuromoji.builder({ dicPath: dicPath }).build((err, t) => {
+      if (err) {
+        console.warn("[click-lookup] 词典加载失败:", err);
+        reject(err);
+        return;
+      }
+      tokenizer = t;
+      tokenizerReady = true;
+      console.log("[click-lookup] kuromoji 词典加载成功");
+      resolve(tokenizer);
+    });
+  }
+
+  /**
+   * 将日语文本转换为辞书型（lemma）
+   * @param {string} text - 输入文本
+   * @returns {string} 辞书型文本
+   */
+  function toDictionaryForm(text) {
+    if (!tokenizerReady || !tokenizer) {
+      return text;
+    }
+
+    try {
+      const tokens = tokenizer.tokenize(text);
+
+      // 查找第一个有基本形的动词或形容词 token
+      for (const token of tokens) {
+        const pos = token.pos || "";
+        if (pos === "動詞" || pos === "形容詞" || pos === "形容動詞") {
+          if (token.basic_form && token.basic_form !== "*") {
+            return token.basic_form;
+          }
+        }
+      }
+
+      return text;
+    } catch (err) {
+      console.warn("[click-lookup] 辞书型转换失败:", err);
+      return text;
+    }
+  }
+
+  /**
+   * 通过 URL Scheme 打开外部 App
+   * @param {string} url - URL Scheme
+   */
+  function openScheme(url) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.style.display = "none";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    console.log("[click-lookup] 跳转 URL:", url);
+  }
+
+  /**
+   * 执行查词
+   * @param {string} text - 要查询的文本
+   */
+  async function lookupWord(text) {
+    if (!text || text.trim() === "") {
+      return;
+    }
+
+    const trimmedText = text.trim();
+
+    // 尝试初始化分词器并转换为辞书型
+    try {
+      await initTokenizer();
+    } catch (err) {
+      console.log("[click-lookup] 使用原始文本查询");
+    }
+
+    // 转换为辞书型
+    const dictionaryForm = toDictionaryForm(trimmedText);
+    const encodedText = encodeURIComponent(dictionaryForm);
+    const scheme = `mkdictionaries:///?text=${encodedText}`;
+
+    openScheme(scheme);
+  }
+
+  /**
+   * 判断是否包含汉字
+   * @param {string} text - 文本
+   * @returns {boolean}
+   */
+  function containsKanji(text) {
+    // 匹配汉字范围：\u4e00-\u9faf
+    return /[\u4e00-\u9faf]/.test(text);
+  }
+
+  /**
+   * 判断词性是否需要添加点击查词
+   * @param {string} pos - 词性
+   * @param {string} surface - 表面形（用于过滤单字符）
+   * @returns {boolean}
+   */
+  function isLookupablePOS(pos, surface) {
+    // 如果功能被禁用，直接返回 false
+    if (!currentConfig.enabled) {
+      return false;
+    }
+
+    // 单字符不添加点击查词（包括平假名、片假名、汉字等）
+    if (!surface) {
+      return false;
+    }
+    // 使用实际字符数判断（正确处理 Unicode）
+    const charCount = Array.from(surface).length;
+    if (charCount <= 1) {
+      return false;
+    }
+
+    // 如果只处理汉字，检查是否包含汉字
+    if (currentConfig.onlyKanji && !containsKanji(surface)) {
+      return false;
+    }
+
+    // 动词、形容词、形容動詞、名詞、副詞
+    return (
+      pos === "動詞" ||
+      pos === "形容詞" ||
+      pos === "形容動詞" ||
+      pos === "名詞" ||
+      pos === "副詞"
+    );
+  }
+
+  /**
+   * 检查元素是否在排除区域内（笔记或答案）
+   * @param {HTMLElement} element - 元素
+   * @returns {boolean}
+   */
+  function isInExcludedArea(element) {
+    // 排除笔记(#note)和答案(#back)区域
+    const excludedSelectors = ["#note", "#back", ".note", ".back"];
+    for (const selector of excludedSelectors) {
+      if (element.closest(selector)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 获取需要处理的文本节点
+   * @param {HTMLElement} element - 根元素
+   * @returns {Array<Text>} 文本节点数组
+   */
+  function getTextNodes(element) {
+    const textNodes = [];
+    const walker = document.createTreeWalker(
+      element,
+      NodeFilter.SHOW_TEXT,
+      null,
+      false
+    );
+
+    let node;
+    while ((node = walker.nextNode())) {
+      // 跳过空白节点和脚本/样式内容
+      if (
+        !node.textContent.trim() ||
+        node.parentElement.tagName === "SCRIPT" ||
+        node.parentElement.tagName === "STYLE" ||
+        node.parentElement.tagName === "BUTTON"
+      ) {
+        continue;
+      }
+      
+      // 跳过已经处理过的节点或位于可点击词内部的节点
+      if (node.parentElement.closest(".click-lookup-word")) {
+        continue;
+      }
+      
+      // 跳过已经处理过的父节点下的文本节点
+      if (node.parentElement._clickLookupProcessed) {
+        continue;
+      }
+
+      // 跳过笔记和答案区域内的节点
+      if (isInExcludedArea(node.parentElement)) {
+        continue;
+      }
+
+      textNodes.push(node);
+    }
+
+    return textNodes;
+  }
+
+  /**
+   * 处理单个文本节点，将可点击词汇包装成 span
+   * @param {Text} textNode - 文本节点
+   */
+  function processTextNode(textNode) {
+    if (!tokenizerReady || !tokenizer) {
+      return;
+    }
+
+    const text = textNode.textContent;
+    if (!text.trim()) {
+      return;
+    }
+
+    try {
+      const tokens = tokenizer.tokenize(text);
+      const parent = textNode.parentNode;
+      
+      // 如果没有父节点或父节点已被处理，跳过
+      if (!parent) {
+        return;
+      }
+
+      // 检查父节点是否已经被处理过（避免重复处理）
+      if (parent._clickLookupProcessed) {
+        return;
+      }
+
+      let currentIndex = 0;
+      const fragment = document.createDocumentFragment();
+
+      tokens.forEach((token) => {
+        const surface = token.surface_form;
+        const pos = token.pos;
+
+        // 找到 token 在原文中的位置
+        const tokenIndex = text.indexOf(surface, currentIndex);
+        if (tokenIndex === -1) {
+          return;
+        }
+
+        // 添加 token 前的普通文本
+        if (tokenIndex > currentIndex) {
+          const normalText = text.substring(currentIndex, tokenIndex);
+          fragment.appendChild(document.createTextNode(normalText));
+        }
+
+        // 创建可点击的词元素
+        if (isLookupablePOS(pos, surface)) {
+          const span = document.createElement("span");
+          span.textContent = surface;
+          span.className = "click-lookup-word";
+          span.setAttribute("data-pos", pos);
+          span.setAttribute("data-lemma", token.basic_form || surface);
+          span.title = `${surface} [${pos}] 点击查看释义`;
+          
+          // 使用事件委托，存储引用便于清理
+          span._lookupHandler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            lookupWord(token.basic_form || surface);
+          };
+          span.addEventListener("click", span._lookupHandler);
+          
+          fragment.appendChild(span);
+        } else {
+          // 非目标词性，保持普通文本
+          fragment.appendChild(document.createTextNode(surface));
+        }
+
+        currentIndex = tokenIndex + surface.length;
+      });
+
+      // 添加剩余文本
+      if (currentIndex < text.length) {
+        const remainingText = text.substring(currentIndex);
+        fragment.appendChild(document.createTextNode(remainingText));
+      }
+
+      // 标记父节点已处理
+      parent._clickLookupProcessed = true;
+      
+      // 替换原始文本节点
+      parent.replaceChild(fragment, textNode);
+    } catch (err) {
+      console.warn("[click-lookup] 处理文本节点失败:", err);
+    }
+  }
+
+  /**
+   * 为 body 内容添加点击查词功能
+   */
+  async function enableClickLookup() {
+    if (isProcessing) {
+      return;
+    }
+
+    isProcessing = true;
+
+    try {
+      // 等待分词器就绪
+      await initTokenizer();
+
+      const body = document.body;
+      if (!body) {
+        console.warn("[click-lookup] 未找到 body 元素");
+        return;
+      }
+
+      // 获取所有文本节点
+      const textNodes = getTextNodes(body);
+
+      // 处理每个文本节点
+      textNodes.forEach((node) => {
+        processTextNode(node);
+      });
+
+      console.log("[click-lookup] 点击查词功能已启用");
+    } catch (err) {
+      console.error("[click-lookup] 启用失败:", err);
+    } finally {
+      isProcessing = false;
+    }
+  }
+
+  /**
+   * 添加必要的 CSS 样式
+   * 文字颜色保持默认，仅下划线颜色区分词性
+   * 添加透明度使下划线不那么喧宾夺主
+   */
+  function addStyles() {
+    const style = document.createElement("style");
+    style.textContent = `
+      .click-lookup-word {
+        cursor: pointer;
+        text-decoration: underline wavy rgba(0, 122, 204, 0.5);
+        text-underline-offset: 2px;
+        transition: background-color 0.2s;
+      }
+      .click-lookup-word:hover {
+        background-color: #e6f3ff;
+      }
+      .click-lookup-word[data-pos="動詞"] {
+        text-decoration: underline wavy rgba(231, 76, 60, 0.5);
+      }
+      .click-lookup-word[data-pos="動詞"]:hover {
+        background-color: #fdeaea;
+      }
+      .click-lookup-word[data-pos="形容詞"],
+      .click-lookup-word[data-pos="形容動詞"] {
+        text-decoration: underline wavy rgba(39, 174, 96, 0.5);
+      }
+      .click-lookup-word[data-pos="形容詞"]:hover,
+      .click-lookup-word[data-pos="形容動詞"]:hover {
+        background-color: #eafaf1;
+      }
+      .click-lookup-word[data-pos="名詞"] {
+        text-decoration: underline wavy rgba(142, 68, 173, 0.5);
+      }
+      .click-lookup-word[data-pos="名詞"]:hover {
+        background-color: #f5eef8;
+      }
+      .click-lookup-word[data-pos="副詞"] {
+        text-decoration: underline wavy rgba(243, 156, 18, 0.5);
+      }
+      .click-lookup-word[data-pos="副詞"]:hover {
+        background-color: #fef5e7;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  /**
+   * 初始化 React 设置组件
+   */
+  function initReactSettings() {
+    const container = document.getElementById("button-container");
+    if (!container) {
+      console.warn("[click-lookup] 未找到 button-container");
+      return;
+    }
+
+    // 调用设置组件渲染函数
+    try {
+      renderSettingsButton(container);
+      addSettingsStyles();
+      console.log("[click-lookup] React 设置组件已初始化");
+    } catch (err) {
+      console.warn("[click-lookup] React 设置组件初始化失败:", err);
+    }
+  }
+
+  /**
+   * 清理函数 - 移除所有事件监听器和DOM引用
+   */
+  function cleanup() {
+    const elements = document.querySelectorAll(".click-lookup-word");
+    elements.forEach((el) => {
+      if (el._lookupHandler) {
+        el.removeEventListener("click", el._lookupHandler);
+        delete el._lookupHandler;
+      }
+    });
+    
+    // 清理父节点的处理标记
+    document.querySelectorAll("*").forEach((el) => {
+      if (el._clickLookupProcessed) {
+        delete el._clickLookupProcessed;
+      }
+    });
+    
+    console.log("[click-lookup] 已清理");
+  }
+
+  // 挂载到 window 对象（供外部调用）
+  window.AnkiClickLookup = {
+    enable: enableClickLookup,
+    initTokenizer: initTokenizer,
+    cleanup: cleanup,
+  };
+
+  // ============ 自动初始化 ============
+  (function autoInit() {
+    const init = () => {
+      // 加载配置
+      currentConfig = loadConfig();
+      
+      addStyles();
+
+      // 初始化 React 设置组件（放到 button-container 中）
+      initReactSettings();
+
+      // 延迟执行，确保页面内容已加载
+      setTimeout(() => {
+        enableClickLookup();
+      }, 100);
+    };
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init);
+    } else {
+      init();
+    }
+  })();
+
+  // 页面卸载时清理资源
+  window.addEventListener("beforeunload", cleanup);
+})();

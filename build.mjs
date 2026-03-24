@@ -77,7 +77,7 @@ function copyToAnki(distDir, ankiDir) {
   // 要复制到 Anki 的文件列表
   const filesToCopy = [
     "default.css", "font-changer.js", "kuromoji.js", "lame.min.js", 
-    "lookup.js", "click-lookup.js", "provider-switcher.js", "share.js", "tts.bundle.js"
+    "lookup.js", "click-lookup.bundle.js", "provider-switcher.js", "share.js", "tts.bundle.js"
   ];
   
   // 复制主要文件
@@ -156,6 +156,27 @@ console.log(
   `[build] bundle src/tts/index.js → dist/tts.bundle.js (${isDev ? "dev" : "prod"})`,
 );
 
+// 2. Bundle click-lookup with settings (包含 React + Ant Design Mobile + 点击查词功能)
+await esbuild.build({
+  entryPoints: ["./src/click-lookup-with-settings.jsx"],
+  outfile: join(distDir, "click-lookup.bundle.js"),
+  bundle: true,
+  format: "iife",
+  target: ["es2020"],
+  minify: !isDev,
+  sourcemap: isDev ? "inline" : false,
+  jsx: "automatic",
+  loader: {
+    ".css": "text",
+  },
+  define: {
+    "process.env.NODE_ENV": JSON.stringify(isDev ? "development" : "production"),
+  },
+});
+console.log(
+  `[build] bundle src/click-lookup-with-settings.jsx → dist/click-lookup.bundle.js (${isDev ? "dev" : "prod"})`,
+);
+
 // 2. 复制 kuromoji 词典文件到 dist（扁平化，保持原始文件名）
 const kuromojiDictSrc = "node_modules/kuromoji/dict";
 if (existsSync(kuromojiDictSrc)) {
@@ -194,3 +215,5 @@ if (existsSync(ankiDir)) {
     `[build] Warning: Anki media dir not found, skipping assets copy`,
   );
 }
+
+console.log("[build] ✅ 构建完成");

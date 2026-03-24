@@ -52,6 +52,10 @@ body {
     user-select: none;
   }
 	margin-bottom: 32px;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .soundLink {
@@ -100,7 +104,11 @@ body {
   margin: 0 !important;
 }
 
-* {
+/* 只对特定容器内的元素应用字体样式 */
+#content *,
+#def *,
+#back *,
+#button-container * {
   font-size: 20px !important;
   /* font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important; */
   font-family:
@@ -112,7 +120,7 @@ body {
 }
 
 button {
-  font-size: 18px !important;
+  font-size: 16px !important;
   box-shadow: none !important;
   border-radius: 3px !important;
   color: black !important;
@@ -122,6 +130,7 @@ button {
   margin-left: 8px !important;
   margin-bottom: 8px !important;
   background: #f0eeef;
+  height: 30px !important;
 }
 
 button:hover {
@@ -215,9 +224,4 @@ ruby {
 rt {
   font-size: 12px !important;
   line-height: 1 !important;
-  font-family:
-    "Huiwen Mincho Font",
-    -apple-system,
-    BlinkMacSystemFont,
-    system-ui;
 }
