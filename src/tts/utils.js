@@ -160,7 +160,8 @@ export class DomHelper {
 // ============ 全局音频状态管理 ============
 
 export class AudioManager {
-  #audio = null;
+  // 当前播放组的所有音频元素（多句子场景下可能有多个）
+  #audioGroup = [];
   #contentKey = null;
   #cardSide = null;
   #abortController = null;
@@ -176,36 +177,40 @@ export class AudioManager {
     this.#abortController = ctrl;
   }
 
-  /** 停止当前音频并中止所有进行中的请求 */
+  /** 停止当前播放组的所有音频并中止所有进行中的请求 */
   stopAll() {
-    if (this.#audio) {
-      this.#audio.pause();
-      this.#audio.currentTime = 0;
-      this.#audio = null;
-    }
+    this.#stopGroup(this.#audioGroup);
+    this.#audioGroup = [];
     this.#abortController?.abort();
     this.#abortController = null;
     this.#contentKey = null;
     this.#cardSide = null;
   }
 
-  /** 停止"其他"音频（不影响自身） */
-  stopOther(audio) {
-    if (this.#audio && this.#audio !== audio) {
-      this.#audio.pause();
-      this.#audio.currentTime = 0;
-    }
+  /** 停止"其他"播放组的所有音频（不影响 audioGroup 自身） */
+  stopOther(audioGroup) {
+    const incomingSet = new Set(audioGroup);
+    const othersToStop = this.#audioGroup.filter((a) => !incomingSet.has(a));
+    this.#stopGroup(othersToStop);
   }
 
-  /** 记录正在播放的音频及上下文 */
-  setPlaying(audio, contentKey, cardSide) {
-    this.#audio = audio;
+  /** 注册当前播放组（替换旧组并停止旧组中不属于新组的音频） */
+  setPlaying(audioGroup, contentKey, cardSide) {
+    this.#audioGroup = audioGroup;
     this.#contentKey = contentKey;
     this.#cardSide = cardSide;
   }
 
-  /** 若 audio 正是当前播放项则清除引用 */
-  clearAudio(audio) {
-    if (this.#audio === audio) this.#audio = null;
+  /** 清除播放组引用（暂停后调用） */
+  clearAudio() {
+    this.#audioGroup = [];
+  }
+
+  /** 停止一组音频元素 */
+  #stopGroup(group) {
+    group.forEach((audio) => {
+      audio.pause();
+      audio.currentTime = 0;
+    });
   }
 }

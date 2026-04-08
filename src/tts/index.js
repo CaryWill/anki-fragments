@@ -170,13 +170,13 @@ class TtsController {
       const mainAudio = audioElements[0];
 
       const play = () => {
-        this.#manager.stopOther(mainAudio);
+        this.#manager.stopOther(audioElements);
         // 从头开始播放
         audioElements.forEach((audio) => {
           audio.currentTime = 0;
         });
         mainAudio.play().catch(() => {});
-        this.#manager.setPlaying(mainAudio, contentKey, cardSide);
+        this.#manager.setPlaying(audioElements, contentKey, cardSide);
       };
 
       const pause = () => {
@@ -184,7 +184,7 @@ class TtsController {
           audio.pause();
           audio.currentTime = 0;
         });
-        this.#manager.clearAudio(mainAudio);
+        this.#manager.clearAudio();
       };
 
       const playBtn = DomHelper.createPlayButton(play, pause);
