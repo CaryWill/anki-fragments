@@ -78,19 +78,6 @@ class TtsController {
     this.#container.prepend(loading);
 
     try {
-      // VoiceVox 有 key 校验步骤；Azure 无需此步骤
-      if (this.#provider.checkKey) {
-        const { valid, error } = await this.#provider.checkKey(this.#signal);
-        this.#checkAborted();
-        if (!valid) {
-          loading.remove();
-          this.#container.prepend(
-            DomHelper.ttsEl("div", { textContent: `Error: ${error}` }),
-          );
-          return;
-        }
-      }
-
       // 按句号（全角和半角）和顿号（全角和半角）拆分文本
       // 支持中文、日文、英文的标点符号
       const rawSentences = speechText.split(/([。.、,])/).filter((s) => s.trim());
