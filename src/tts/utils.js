@@ -70,7 +70,11 @@ export class AudioConverter {
   static async decode(blob) {
     const arrayBuf = await blob.arrayBuffer();
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    return ctx.decodeAudioData(arrayBuf);
+    try {
+      return await ctx.decodeAudioData(arrayBuf);
+    } finally {
+      ctx.close();
+    }
   }
 
   /** Float32Array → Int16Array（PCM） */
@@ -196,7 +200,7 @@ export class AudioManager {
 
   /** 注册当前播放组（替换旧组并停止旧组中不属于新组的音频） */
   setPlaying(audioGroup, contentKey, cardSide) {
-    this.#audioGroup = audioGroup;
+    this.#audioGroup = Array.isArray(audioGroup) ? audioGroup : [audioGroup];
     this.#contentKey = contentKey;
     this.#cardSide = cardSide;
   }

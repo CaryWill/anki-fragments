@@ -117,52 +117,60 @@ class TtsController {
       audioBlobs[0] = await this.#provider.synthesize(sentences[0], this.#signal);
       this.#checkAborted();
 
-      // 创建第一个音频元素
-      const firstAudio = DomHelper.createAudioEl(
-        URL.createObjectURL(audioBlobs[0]),
-        () =>
-          this.#manager.setPlaying(audioElements[0], contentKey, cardSide),
-      );
-      this.#container.appendChild(firstAudio);
-      audioElements.push(firstAudio);
+      // 记录所有创建的 ObjectURL，便于统一释放
+      const objectUrls = [];
 
-      // 为第一个音频元素添加播放结束事件，自动播放下一个
-      firstAudio.addEventListener("ended", () => {
-        const currentIndex = audioElements.indexOf(firstAudio);
-        if (currentIndex < audioElements.length - 1) {
-          const nextAudio = audioElements[currentIndex + 1];
-          // 减少停顿时间，立即播放下一个
-          nextAudio.play().catch(() => {});
-        }
-      });
-      
-      // 添加 timeupdate 事件作为备用方案（解决某些音频文件 ended 事件不触发的问题）
-      firstAudio.addEventListener("timeupdate", () => {
-        const currentIndex = audioElements.indexOf(firstAudio);
-        if (currentIndex < audioElements.length - 1) {
-          const nextAudio = audioElements[currentIndex + 1];
-          // 如果当前音频播放到接近结束（剩余时间小于 0.1 秒），自动播放下一个
-          if (firstAudio.duration > 0 && firstAudio.currentTime >= firstAudio.duration - 0.1) {
-            // 确保下一个音频还没开始播放
+      // 为音频元素绑定自动连播事件（ended + timeupdate 双保险）
+      const bindAutoPlayNext = (audio) => {
+        audio.addEventListener("ended", () => {
+          const currentIndex = audioElements.indexOf(audio);
+          if (currentIndex < audioElements.length - 1) {
+            audioElements[currentIndex + 1].play().catch(() => {});
+          }
+        });
+
+        audio.addEventListener("timeupdate", () => {
+          if (audio.duration <= 0) return;
+          if (audio.currentTime < audio.duration - 0.1) return;
+          const currentIndex = audioElements.indexOf(audio);
+          if (currentIndex < audioElements.length - 1) {
+            const nextAudio = audioElements[currentIndex + 1];
             if (nextAudio.paused) {
               nextAudio.play().catch(() => {});
             }
           }
-        }
-      });
+        });
+      };
+
+      // 创建音频元素的统一方法
+      const createAudio = (blob) => {
+        const url = URL.createObjectURL(blob);
+        objectUrls.push(url);
+        const audio = DomHelper.createAudioEl(
+          url,
+          () => this.#manager.setPlaying(audioElements, contentKey, cardSide),
+        );
+        this.#container.appendChild(audio);
+        audioElements.push(audio);
+        bindAutoPlayNext(audio);
+        return audio;
+      };
+
+      // 创建第一个音频元素
+      createAudio(audioBlobs[0]);
 
       loading.remove();
 
-      // 使用第一个音频元素作为主控制
-      const mainAudio = audioElements[0];
+      let playTimer = null;
 
       const play = () => {
         this.#manager.stopOther(audioElements);
-        // 从头开始播放
+        // 先停止当前组内所有音频，再从头播放
         audioElements.forEach((audio) => {
+          audio.pause();
           audio.currentTime = 0;
         });
-        mainAudio.play().catch(() => {});
+        audioElements[0].play().catch(() => {});
         this.#manager.setPlaying(audioElements, contentKey, cardSide);
       };
 
@@ -174,58 +182,44 @@ class TtsController {
         this.#manager.clearAudio();
       };
 
-      const playBtn = DomHelper.createPlayButton(play, pause);
+      // 用延时区分单击（播放）和双击（暂停），避免双击时先触发一次播放
+      const handleClick = () => {
+        if (playTimer) {
+          clearTimeout(playTimer);
+          playTimer = null;
+          pause();
+          return;
+        }
+        playTimer = setTimeout(() => {
+          playTimer = null;
+          play();
+        }, 250);
+      };
+
+      const playBtn = DomHelper.createPlayButton(handleClick);
       playBtn.setAttribute("data-order", "1");
       this.#container.appendChild(playBtn);
       sortButtons(this.#container);
 
+      // 页面卸载时释放 ObjectURL
+      const revokeUrls = () => {
+        objectUrls.forEach((url) => URL.revokeObjectURL(url));
+        objectUrls.length = 0;
+      };
+      window.addEventListener("pagehide", revokeUrls, { once: true });
+
       // 预加载剩余的句子（在后台进行）
       const preloadNext = async (index) => {
         if (index >= sentences.length) return;
-        
+
         try {
           this.#checkAborted();
-          // alert(`正在请求 TTS 接口：第 ${index + 1} 句\n句子内容：${sentences[index]}`);
           const blob = await this.#provider.synthesize(sentences[index], this.#signal);
           this.#checkAborted();
-          
+
           audioBlobs[index] = blob;
-          
-          // 创建音频元素
-          const audio = DomHelper.createAudioEl(
-            URL.createObjectURL(blob),
-            () =>
-              this.#manager.setPlaying(audioElements[0], contentKey, cardSide),
-          );
-          this.#container.appendChild(audio);
-          audioElements.push(audio);
+          createAudio(blob);
 
-          // 为每个音频元素添加播放结束事件，自动播放下一个
-          audio.addEventListener("ended", () => {
-            const currentIndex = audioElements.indexOf(audio);
-            if (currentIndex < audioElements.length - 1) {
-              const nextAudio = audioElements[currentIndex + 1];
-              // 减少停顿时间，立即播放下一个
-              nextAudio.play().catch(() => {});
-            }
-          });
-          
-          // 添加 timeupdate 事件作为备用方案（解决某些音频文件 ended 事件不触发的问题）
-          audio.addEventListener("timeupdate", () => {
-            const currentIndex = audioElements.indexOf(audio);
-            if (currentIndex < audioElements.length - 1) {
-              const nextAudio = audioElements[currentIndex + 1];
-              // 如果当前音频播放到接近结束（剩余时间小于 0.1 秒），自动播放下一个
-              if (audio.duration > 0 && audio.currentTime >= audio.duration - 0.1) {
-                // 确保下一个音频还没开始播放
-                if (nextAudio.paused) {
-                  nextAudio.play().catch(() => {});
-                }
-              }
-            }
-          });
-
-          // 继续预加载下一个
           preloadNext(index + 1);
         } catch (err) {
           if (err.name !== "AbortError") {
