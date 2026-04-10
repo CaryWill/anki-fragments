@@ -1,6 +1,7 @@
-/* e-ink */
 @font-face {
   font-family: "Huiwen Mincho Font";
+  /* https://github.com/bosswnx/huiwenmincho-improved/blob/main/README.md */
+  /* https://zhuanlan.zhihu.com/p/344103391 */
   src: url("./Huiwen Ming Chao Font.ttf");
 }
 
@@ -19,44 +20,38 @@
   src: url("./LXGWNeoXiHeiScreenFull.ttf");
 }
 
-/*
- * E-Ink 墨水屏风格样式
- * 灵感来源: https://github.com/anxcye/anx-reader
- *
- * 设计理念:
- *   - 纯黑白高对比度，适合墨水屏设备
- *   - 去除所有阴影、渐变、半透明效果
- *   - 加大行距和段间距，提升长时间阅读舒适度
- *   - 使用衬线字体，模拟纸质书阅读体验
- */
-
 .card {
   text-align: left;
-  line-height: 1.8 !important;
-  padding: 0 12px;
+  line-height: 1.5 !important;
+  padding: 0 10px;
   margin: 0;
   * {
-    line-height: 1.8 !important;
+    line-height: 1.5 !important;
   }
 }
 
 body {
-  border-bottom: 1px solid #d0d0d0;
+  border-bottom: 1px dashed gainsboro;
   padding: 0 !important;
   margin: 0 8px !important;
 }
 
 .myCard,
 body {
-  background-color: #fbfbf3;
-  color: #343434;
+  background-color: white;
+  /* background-color: #f0eeef; */
+}
+
+#button-container,
+.card {
+  /* background-color: #f0eeef; */
 }
 
 #button-container {
   * {
     user-select: none;
   }
-  margin-bottom: 32px;
+	margin-bottom: 32px;
 }
 
 .soundLink {
@@ -74,7 +69,7 @@ body {
 #example:not(:empty)::before {
   content: "📌 例子";
   display: block;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   font-style: normal !important;
   font-weight: normal !important;
 }
@@ -82,7 +77,7 @@ body {
 #def:not(:empty)::before {
   content: "📜 定義";
   display: block;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   font-style: normal !important;
   font-weight: normal !important;
 }
@@ -90,7 +85,7 @@ body {
 #note:not(:empty)::before {
   content: "📝 笔记 ";
   display: block;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   font-style: normal !important;
   font-weight: normal !important;
 }
@@ -107,24 +102,22 @@ body {
 
 * {
   font-size: 20px !important;
+  /* font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important; */
   font-family:
-    "HinaMincho-Regular",
-    "Huiwen Mincho Font",
     "LXGWWenKai-Regular",
     -apple-system,
     BlinkMacSystemFont,
     system-ui,
-    serif !important;
-  color: #343434;
+    sans-serif !important;
 }
 
 button {
   font-size: 18px !important;
   box-shadow: none !important;
   border-radius: 3px !important;
-  color: #343434 !important;
-  padding: 4px 12px !important;
-  border: 1px solid #c0c0c0 !important;
+  color: black !important;
+  padding: 3px 10px !important;
+  border: none;
   margin: 0 !important;
   margin-left: 8px !important;
   margin-bottom: 8px !important;
@@ -132,8 +125,8 @@ button {
 }
 
 button:hover {
-  border: 1px solid #a0a0a0 !important;
-  background: #e8e6e7;
+  border: none !important;
+  background: #f0eeef;
 }
 
 button:last-of-type {
@@ -144,7 +137,6 @@ a,
 #source {
   font-size: 14px !important;
   word-break: break-all;
-  color: #555555 !important;
 }
 
 #sticky-header {
@@ -152,8 +144,8 @@ a,
   top: 0;
   z-index: 1000;
   min-height: 40px;
-  border-bottom: 1px solid #d0d0d0;
-  background: #fbfbf3;
+  border-bottom: 1px dashed gainsboro;
+  background: white;
 }
 
 #sticky-header video {
@@ -168,17 +160,17 @@ a,
 
 #back:not(:empty)::before {
   content: "⚡️ 答案";
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   display: block;
   font-style: normal !important;
   font-weight: normal !important;
 }
 
 blockquote {
-  margin: 1.8em 0;
-  padding: 0 1.2em;
-  color: #555555;
-  border-left: 3px solid #343434;
+  margin: 1.5em 0;
+  padding: 0 1em;
+  color: #6a737d;
+  border-left: 0.25em solid #dfe2e5;
 }
 
 #note,
@@ -194,12 +186,15 @@ blockquote {
 }
 
 .myCard {
-  padding: 18px 8px;
-  border-top: 1px solid #d0d0d0;
+  padding: 16px 8px;
+  border-top: 1px dashed gainsboro;
 }
 
 .myCard:first-of-type {
   border-top: none;
+}
+
+.myCard:last-of-type {
 }
 
 #front,
@@ -210,7 +205,7 @@ blockquote {
 
 .listenOnlyIndicator {
   text-align: center;
-  margin-bottom: 10px;
+	margin-bottom: 10px;
 }
 
 ruby {
